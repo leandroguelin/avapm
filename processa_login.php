@@ -5,11 +5,11 @@ if (session_status() == PHP_SESSION_NONE) { session_start(); }
 require_once __DIR__ . '/includes/conexao.php';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $email = $_POST['email'];
+    $cpf = $_POST['cpf']; // Alterado de email para cpf
     $senha = $_POST['senha'];
 
-    $stmt = $pdo->prepare('SELECT * FROM usuario WHERE email = :email');
-    $stmt->execute(['email' => $email]);
+    $stmt = $pdo->prepare('SELECT * FROM usuario WHERE cpf = :cpf'); // Alterado para buscar por cpf
+    $stmt->execute(['cpf' => $cpf]); // Alterado para usar o parâmetro cpf
     $usuario = $stmt->fetch();
 
     if ($usuario && password_verify($senha, $usuario['senha'])) {

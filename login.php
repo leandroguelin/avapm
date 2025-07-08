@@ -68,8 +68,8 @@ unset($_SESSION['mensagem_feedback']);
 
             <form action="processa_login.php" method="POST">
                 <div class="form-group">
-                    <label for="email">E-mail:</label>
-                    <input type="email" id="email" name="email" required placeholder="Digite seu e-mail" autocomplete="email">
+                    <label for="cpf">CPF:</label>
+                    <input type="text" id="cpf" name="cpf" required placeholder="Digite seu CPF" autocomplete="username">
                 </div>
                 <div class="form-group">
                     <label for="senha">Senha:</label>
@@ -79,6 +79,7 @@ unset($_SESSION['mensagem_feedback']);
             </form>
             <div class="links-login">
                 <a href="recuperar_senha.php">Esqueci minha senha</a>
+                <br><a href="cadastro.php">Criar uma nova conta</a>
             </div>
         </div>
     </div>

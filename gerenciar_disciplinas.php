@@ -291,6 +291,7 @@ require_once __DIR__ . '/includes/templates/footer_dashboard.php';
 
         // Event listener para os links de paginação (delegation)
         disciplinaTableContainer.addEventListener('click', function(event) {
+            console.log('Clique detectado na tabela de disciplinas.');
             const paginationLink = event.target.closest('.pagination-link');
             if (paginationLink) {
                 event.preventDefault(); // Impede o comportamento padrão do link
@@ -299,10 +300,11 @@ require_once __DIR__ . '/includes/templates/footer_dashboard.php';
                 const page = url.searchParams.get('pagina');
                 const searchTerm = searchInput.value;
 
+                console.log('Link de paginação clicado. Buscando página:', page, 'Termo de pesquisa:', searchTerm);
+
                 fetchDisciplinas(searchTerm, page); // Busca a nova página
             }
         });
-
         /**
          * Abre a modal de visualização da ementa.
          * Esta função é chamada diretamente via `onclick` no HTML do botão.
