@@ -22,6 +22,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         $_SESSION['foto_perfil'] = $usuario['foto'];
 
+        // --- Registrar login na tabela log_logins ---
+        try {
+            $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'N/A'; // Obtém o IP do usuário
+
+            $stmt_log = $pdo->prepare("INSERT INTO log_logins (usuario_id, data_login, ip, tipo_dispositivo, localizacao) VALUES (:usuario_id, NOW(), :ip, NULL, NULL)");
+            $stmt_log->bindParam(':usuario_id', $usuario['id'], PDO::PARAM_INT);
+            $stmt_log->bindParam(':ip', $ip_address);
+            $stmt_log->execute();
+        } catch (PDOException $e) {
+            // Loga o erro, mas não impede o login do usuário
+            error_log("Erro ao registrar login no log_logins para usuario_id " . $usuario['id'] . ": " . $e->getMessage());
+            // Não define mensagem de feedback para o usuário final neste caso
+        }
+
         // CORREÇÃO: Força o PHP a salvar os dados da sessão no disco ANTES de redirecionar.
         session_write_close(); 
 
