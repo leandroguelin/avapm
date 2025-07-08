@@ -1,0 +1,9 @@
+CREATE TABLE minhas_disciplinas (
+    id SERIAL PRIMARY KEY,
+    usuario_id INT NOT NULL,
+    disciplina_id INT NOT NULL,
+    disponibilidade VARCHAR(50), -- Ajuste o tamanho conforme necessário
+    FOREIGN KEY (usuario_id) REFERENCES usuario(id) ON DELETE CASCADE,
+    FOREIGN KEY (disciplina_id) REFERENCES disciplina(id) ON DELETE CASCADE,
+    UNIQUE (usuario_id, disciplina_id) -- Garante que um usuário não tenha a mesma disciplina duplicada
+);

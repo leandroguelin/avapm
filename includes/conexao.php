@@ -9,9 +9,9 @@ define('DB_NAME', 'avapm'); // Nome do banco de dados que criamos
 try {
     // Cria uma nova instância PDO para a conexão
     // mysql:host=DB_HOST;dbname=DB_NAME - Especifica o driver, host e nome do banco
-    // DB_USER, DB_PASS - Credenciais de acesso
-    // array(PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8") - Define o charset para UTF-8, garantindo que caracteres especiais sejam exibidos corretamente
-    $pdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS, array(PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8"));
+    // pgsql:host=DB_HOST;dbname=DB_NAME - Especifica o driver, host e nome do banco
+    // DB_USER, DB_PASS - Credenciais de acesso    
+    $pdo = new PDO("pgsql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
 
     // Define o modo de erro do PDO para lançar exceções em caso de erros SQL
     // Isso facilita a depuração, pois erros serão "capturados" pelo bloco catch

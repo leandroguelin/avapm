@@ -14,9 +14,9 @@ if ($_SESSION['nivel_acesso'] !== 'Administrador') {
 
 // --- FUNÇÃO PARA SALVAR UMA CONFIGURAÇÃO ---
 function salvar_configuracao($pdo, $chave, $valor) {
-    // Usa INSERT ... ON DUPLICATE KEY UPDATE para inserir ou atualizar a chave.
+    // Usa INSERT ... ON CONFLICT (chave) DO UPDATE para inserir ou atualizar a chave (PostgreSQL).
     // Isso requer que a coluna 'chave' tenha um índice UNIQUE, o que já fizemos no CREATE TABLE.
-    $sql = "INSERT INTO configuracoes (chave, valor) VALUES (:chave, :valor) ON DUPLICATE KEY UPDATE valor = :valor";
+    $sql = "INSERT INTO configuracoes (chave, valor) VALUES (:chave, :valor) ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([':chave' => $chave, ':valor' => $valor]);
 }

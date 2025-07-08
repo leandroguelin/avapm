@@ -74,7 +74,7 @@ $professores = [];
 try {
     $stmt_disciplinas = $pdo->query("SELECT id, nome, sigla FROM disciplina ORDER BY sigla ASC");
     $disciplinas = $stmt_disciplinas->fetchAll(PDO::FETCH_ASSOC);
-
+    // Usar o operador || para concatenação em PostgreSQL
     $stmt_professores = $pdo->prepare("
         SELECT id, TRIM(CONCAT_WS(' ', patente, rg, nome)) AS nome_formatado 
         FROM usuario 
@@ -86,7 +86,7 @@ try {
 
 } catch (PDOException $e) {
     error_log("Erro ao carregar dropdowns: " . $e->getMessage());
-    $mensagem_feedback = "Aviso: Erro ao carregar opções.";
+ $mensagem_feedback = "Aviso: Erro ao carregar opções.";
     $feedback_tipo = 'warning';
 }
 
