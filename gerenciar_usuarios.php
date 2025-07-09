@@ -215,6 +215,78 @@ require_once __DIR__ . '/includes/templates/sidebar_dashboard.php';
 require_once __DIR__ . '/includes/templates/footer_dashboard.php';
 ?>
 
+<!-- Modal para exibir disciplinas do professor -->
+<div id="disciplinasModal" class="modal">
+    <div class="modal-content">
+        <span class="close-button" onclick="fecharModalDisciplinas()">&times;</span>
+        <h2 id="modalProfessorNome"></h2>
+        <div id="modalDisciplinasList">
+            <!-- A lista de disciplinas será carregada aqui via JavaScript -->
+        </div>
+        <p id="modalDisciplinasStatus" style="text-align: center; font-style: italic;"></p>
+    </div>
+</div>
+
+<style>
+    /* Estilos básicos para a modal */
+    .modal {
+        display: none; /* Oculto por padrão */
+        position: fixed; /* Fica no topo */
+        z-index: 1; /* Fica acima de tudo */
+        left: 0;
+        top: 0;
+        width: 100%; /* Largura total */
+        height: 100%; /* Altura total */
+        overflow: auto; /* Habilita scroll se necessário */
+        background-color: rgba(0,0,0,0.4); /* Fundo escuro */
+        justify-content: center; /* Centraliza horizontalmente com flex */
+        align-items: center; /* Centraliza verticalmente com flex */
+    }
+
+    .modal-content {
+        background-color: #fefefe;
+        margin: auto; /* Centraliza */
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%; /* Pode ajustar a largura */
+        max-width: 600px; /* Largura máxima */
+        border-radius: 10px;
+        position: relative; /* Necessário para posicionar o botão de fechar */
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
+
+    .close-button {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        position: absolute;
+        top: 10px;
+        right: 20px;
+    }
+
+    .close-button:hover,
+    .close-button:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    #modalDisciplinasList ul {
+        list-style: none;
+        padding: 0;
+    }
+
+    #modalDisciplinasList li {
+        padding: 8px 0;
+        border-bottom: 1px solid #eee;
+    }
+
+    #modalDisciplinasList li:last-child {
+        border-bottom: none;
+    }
+</style>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('searchInput');
@@ -222,6 +294,11 @@ document.addEventListener('DOMContentLoaded', function() {
     let searchTimeout;
 
     function fetchUsers(searchTerm, page = 1) {
+        // Adiciona log para depuração
+        console.log(`fetchUsers chamado com termo: "${searchTerm}", página: ${page}`);
+
+
+        // CONSTRUIR A URL CORRETAMENTE
         const url = `gerenciar_usuarios.php?q=${encodeURIComponent(searchTerm)}&pagina=${page}`;
 
         fetch(url, {
@@ -229,10 +306,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 'X-Requested-With': 'XMLHttpRequest' // Indica que é uma requisição AJAX
             }
         })
-        .then(response => {
+        .then(response => { // Primeira promessa: receber a resposta
+            console.log('Resposta da requisição AJAX recebida.'); // Log
             if (!response.ok) {
                 throw new Error('Erro na requisição AJAX: ' + response.statusText);
             }
+            // Continua para a próxima promessa, passando o texto (HTML)
             return response.text(); // Pega o HTML da resposta
         })
         .then(html => {
@@ -257,6 +336,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Atualiza a URL na barra de endereços sem recarregar a página
             const newUrl = new URL(window.location.href);
             newUrl.searchParams.set('q', searchTerm);
+            // Certifica-se de que o parâmetro de página seja definido corretamente
             newUrl.searchParams.set('pagina', page);
             window.history.pushState({ path: newUrl.href }, '', newUrl.href);
 
@@ -269,6 +349,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     searchInput.addEventListener('keyup', function() {
+         console.log('Evento keyup no searchInput.'); // Log
         clearTimeout(searchTimeout); // Limpa qualquer timeout anterior
         const searchTerm = this.value;
         searchTimeout = setTimeout(() => {
@@ -278,14 +359,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Delegar evento de clique para links de paginação dentro do container
     userTableContainer.addEventListener('click', function(event) {
+         console.log('Clique dentro do userTableContainer.'); // Log
         // Verifica se o clique foi em um link com a classe 'pagination-link' ou em um de seus descendentes
         const paginationLink = event.target.closest('.pagination-link');
         if (paginationLink) {
+             console.log('Link de paginação clicado.'); // Log
             event.preventDefault(); // Impede o comportamento padrão do link
 
+            // Pega a URL do link clicado
             const url = new URL(paginationLink.href);
+            // Extrai o parâmetro 'pagina' da URL
             const page = url.searchParams.get('pagina');
+            // Usa o termo atual da caixa de pesquisa (para manter o filtro)
             const searchTerm = searchInput.value; // Usa o termo atual da caixa de pesquisa
+
+            console.log(`Navegando para página: ${page}, com termo: "${searchTerm}"`); // Log
 
             fetchUsers(searchTerm, page);
         }
@@ -312,5 +400,88 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Adiciona os listeners na carga inicial da página
     addDeleteConfirmationListeners();
+
+    // ==============================================================
+    // JavaScript para a Modal de Disciplinas do Professor
+    // ==============================================================
+    const disciplinasModal = document.getElementById('disciplinasModal');
+    const modalProfessorNome = document.getElementById('modalProfessorNome');
+    const modalDisciplinasList = document.getElementById('modalDisciplinasList');
+    const modalDisciplinasStatus = document.getElementById('modalDisciplinasStatus');
+    const closeButtonDisciplinas = disciplinasModal.querySelector('.close-button');
+
+    // Event listener para os botões "Disciplinas" (delegação)
+    userTableContainer.addEventListener('click', function(event) {
+        const disciplinaButton = event.target.closest('.btn-ver-disciplinas');
+        if (disciplinaButton) {
+            event.preventDefault(); // Impede qualquer ação padrão
+
+            const userId = disciplinaButton.getAttribute('data-user-id');
+            const userName = disciplinaButton.getAttribute('data-user-name');
+
+            // Exibe o nome do professor na modal
+            modalProfessorNome.textContent = `Disciplinas ministradas por: ${userName}`;
+            modalDisciplinasList.innerHTML = ''; // Limpa a lista anterior
+            modalDisciplinasStatus.textContent = 'Carregando disciplinas...'; // Mensagem de carregamento
+            disciplinasModal.style.display = 'flex'; // Exibe a modal (usando flex para centralizar)
+
+            fetchDisciplinasProfessor(userId); // Chama a função para buscar as disciplinas via AJAX
+        }
+
+    });
+
+    /**
+     * Busca as disciplinas ministradas por um professor via AJAX e preenche a modal.
+     * @param {number} userId - O ID do professor.
+     */
+    function fetchDisciplinasProfessor(userId) {
+        // URL do endpoint que você criará (ou adaptará) para buscar as disciplinas
+        const url = `/avapm/get_disciplinas_professor.php?user_id=${encodeURIComponent(userId)}`; 
+
+        fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Erro na requisição AJAX para obter disciplinas: ' + response.statusText);
+            }
+             // Espera que o endpoint retorne JSON
+            return response.json(); 
+        })
+        .then(data => {
+            modalDisciplinasList.innerHTML = ''; // Limpa status de carregamento ou "sem disciplinas"
+            modalDisciplinasStatus.textContent = ''; // Limpa status
+
+            if (data.length > 0) {
+                const ul = document.createElement('ul');
+                data.forEach(disciplina => {
+                    const li = document.createElement('li');
+                    li.textContent = `${disciplina.sigla} - ${disciplina.nome}`; // Assume que a resposta JSON tem sigla e nome
+                    ul.appendChild(li);
+                });
+                modalDisciplinasList.appendChild(ul);
+            } else {
+                modalDisciplinasStatus.textContent = 'Este professor não ministra nenhuma disciplina no momento.';
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao carregar disciplinas do professor:', error);
+            modalDisciplinasStatus.textContent = 'Erro ao carregar disciplinas.';
+        });
+    }
+
+    // Event listener para o botão de fechar a modal
+    closeButtonDisciplinas.addEventListener('click', function() {
+        disciplinasModal.style.display = 'none';
+    });
+
+    // Fechar modal clicando fora dela
+    window.onclick = function(event) {
+        if (event.target == disciplinasModal) {
+            disciplinasModal.style.display = 'none';
+        }
+    };
+});
+
+        }
+    };
 });
 </script>

@@ -7,3 +7,15 @@ CREATE TABLE minhas_disciplinas (
     FOREIGN KEY (disciplina_id) REFERENCES disciplina(id) ON DELETE CASCADE,
     UNIQUE (usuario_id, disciplina_id) -- Garante que um usuário não tenha a mesma disciplina duplicada
 );
+
+
+
+CREATE TABLE log_logins (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    usuario_id INT NOT NULL,
+    data_login DATETIME NOT NULL,
+    ip VARCHAR(45) NOT NULL,
+    tipo_dispositivo VARCHAR(255) NULL,
+    localizacao VARCHAR(255) NULL,
+    FOREIGN KEY (usuario_id) REFERENCES usuario(id) ON DELETE CASCADE
+);

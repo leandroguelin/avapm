@@ -47,9 +47,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     // Verifica se E-mail já existe
     $stmt_email = $pdo->prepare('SELECT COUNT(*) FROM usuario WHERE email = :email');
-         $erros[] = 'Este e-mail já está cadastrado.';
+    $stmt_email->execute([':email' => $email]);
+    if ($stmt_email->fetchColumn() > 0) {
+        $erros[] = 'Este e-mail já está cadastrado.';
     }
-
 
     // Processar resultados da validação
     if (!empty($erros)) {

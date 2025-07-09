@@ -37,6 +37,14 @@
                     <td><?php echo htmlspecialchars($usuario['telefone'] ?? 'N/A'); ?></td>
                     <td><?php echo htmlspecialchars($usuario['titulacao'] ?? 'N/A'); ?></td>
                     <td class="text-center">
+                        <?php if (($usuario['nivel_acesso'] ?? '') === 'PROFESSOR'): // Ação apenas para professores ?>
+                            <button class="btn btn-sm btn-primary btn-ver-disciplinas" data-user-id="<?php echo htmlspecialchars($usuario['id']); ?>" data-user-name="<?php echo htmlspecialchars($usuario['nome']); ?>" title="Ver Disciplinas Ministradas">
+                                <i class="fas fa-book"></i>
+                            </button>
+ <a href="log.php?user_id=<?php echo htmlspecialchars($usuario['id']); ?>" class="btn btn-sm btn-secondary" title="Ver Logs de Login">
+ <i class="fas fa-history"></i>
+ </a>
+
                         <a href="editar_usuario.php?id=<?php echo htmlspecialchars($usuario['id']); ?>" class="btn btn-sm btn-info" title="Editar Usuário">
                             <i class="fas fa-user-edit"></i>
                         </a>
