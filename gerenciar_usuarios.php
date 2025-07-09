@@ -282,195 +282,106 @@ document.addEventListener('DOMContentLoaded', function() {
     const userTableContainer = document.getElementById('userTableContainer');
     let searchTimeout;
 
+    // Função central para buscar e atualizar a tabela de usuários
     function fetchUsers(searchTerm, page = 1) {
-        // Adiciona log para depuração
-        console.log(`fetchUsers chamado com termo: "${searchTerm}", página: ${page}`);
-
-
-        // CONSTRUIR A URL CORRETAMENTE
         const url = `gerenciar_usuarios.php?q=${encodeURIComponent(searchTerm)}&pagina=${page}`;
 
         fetch(url, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest' // Indica que é uma requisição AJAX
-            }
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
-        .then(response => { // Primeira promessa: receber a resposta
-            console.log('Resposta da requisição AJAX recebida.'); // Log
+        .then(response => {
             if (!response.ok) {
                 throw new Error('Erro na requisição AJAX: ' + response.statusText);
             }
-            // Continua para a próxima promessa, passando o texto (HTML)
-            return response.text(); // Pega o HTML da resposta
+            return response.text();
         })
         .then(html => {
-            userTableContainer.innerHTML = html; // Insere o HTML da tabela no container
-            addDeleteConfirmationListeners(); // Re-adiciona listeners para novos botões
-
-            // === NOVO: Atualiza os links dos botões de exportação ===
-            const exportExcelLink = document.querySelector('a[href*="export_data.php?type=users&format=excel"]');
-            const exportPdfLink = document.querySelector('a[href*="export_data.php?type=users&format=pdf"]');
-            if (exportExcelLink) {
-                const currentHref = new URL(exportExcelLink.href);
-                currentHref.searchParams.set('q', searchTerm);
-                exportExcelLink.href = currentHref.toString();
-            }
-            if (exportPdfLink) {
-                const currentHref = new URL(exportPdfLink.href);
-                currentHref.searchParams.set('q', searchTerm);
-                exportPdfLink.href = currentHref.toString();
-            }
-            // ========================================================
-
-            // Atualiza a URL na barra de endereços sem recarregar a página
+            userTableContainer.innerHTML = html;
             const newUrl = new URL(window.location.href);
             newUrl.searchParams.set('q', searchTerm);
-            // Certifica-se de que o parâmetro de página seja definido corretamente
             newUrl.searchParams.set('pagina', page);
             window.history.pushState({ path: newUrl.href }, '', newUrl.href);
-
         })
         .catch(error => {
             console.error('Erro ao buscar usuários:', error);
-            // Exibe uma mensagem de erro na interface do usuário, se desejar
-            // userTableContainer.innerHTML = '<p class="error-message" style="color: red;">Não foi possível carregar os dados. Tente novamente.</p>';
+            userTableContainer.innerHTML = '<div class="alert alert-danger">Erro ao carregar os dados. Tente novamente.</div>';
         });
     }
 
+    // Listener para o campo de pesquisa
     searchInput.addEventListener('keyup', function() {
-         console.log('Evento keyup no searchInput.'); // Log
-        clearTimeout(searchTimeout); // Limpa qualquer timeout anterior
+        clearTimeout(searchTimeout);
         const searchTerm = this.value;
         searchTimeout = setTimeout(() => {
             fetchUsers(searchTerm, 1); // Sempre volta para a página 1 ao pesquisar
-        }, 300); // Pequeno atraso para evitar muitas requisições
+        }, 300);
     });
 
-    // Delegar evento de clique para links de paginação dentro do container
+    // Listener para cliques nos links de paginação e botões de disciplina (usando delegação de eventos)
     userTableContainer.addEventListener('click', function(event) {
-         console.log('Clique dentro do userTableContainer.'); // Log
-        // Verifica se o clique foi em um link com a classe 'pagination-link' ou em um de seus descendentes
+        // Lógica para paginação
         const paginationLink = event.target.closest('.pagination-link');
         if (paginationLink) {
-             console.log('Link de paginação clicado.'); // Log
-            event.preventDefault(); // Impede o comportamento padrão do link
-
-            // Pega a URL do link clicado
+            event.preventDefault();
             const url = new URL(paginationLink.href);
-            // Extrai o parâmetro 'pagina' da URL
             const page = url.searchParams.get('pagina');
-            // Usa o termo atual da caixa de pesquisa (para manter o filtro)
-            const searchTerm = searchInput.value; // Usa o termo atual da caixa de pesquisa
+            fetchUsers(searchInput.value, page);
+        }
 
-            console.log(`Navegando para página: ${page}, com termo: "${searchTerm}"`); // Log
-
-            fetchUsers(searchTerm, page);
+        // Lógica para o modal de disciplinas
+        const disciplinaButton = event.target.closest('.btn-ver-disciplinas');
+        if (disciplinaButton) {
+            event.preventDefault();
+            const userId = disciplinaButton.dataset.userId;
+            const userName = disciplinaButton.dataset.userName;
+            abrirModalDisciplinas(userId, userName);
         }
     });
 
-    // Função para adicionar/re-adicionar listeners de confirmação de exclusão
-    function addDeleteConfirmationListeners() {
-        document.querySelectorAll('.btn-action.delete-btn').forEach(button => {
-            // Remove o listener anterior para evitar duplicação (se já existia)
-            button.removeEventListener('click', confirmDelete);
-            // Adiciona o novo listener
-            button.addEventListener('click', confirmDelete);
-        });
-    }
-
-    // Função de confirmação para exclusão
-    function confirmDelete(event) {
-        if (!confirm('Tem certeza que deseja excluir este usuário? Esta ação é irreversível.')) {
-            event.preventDefault(); // Impede a ação padrão se o usuário cancelar
-            return false;
-        }
-        return true;
-    }
-
-    // Adiciona os listeners na carga inicial da página
-    addDeleteConfirmationListeners();
-
-    // ==============================================================
-    // JavaScript para a Modal de Disciplinas do Professor
-    // ==============================================================
+    // --- Funções da Modal de Disciplinas ---
     const disciplinasModal = document.getElementById('disciplinasModal');
     const modalProfessorNome = document.getElementById('modalProfessorNome');
     const modalDisciplinasList = document.getElementById('modalDisciplinasList');
     const modalDisciplinasStatus = document.getElementById('modalDisciplinasStatus');
-    const closeButtonDisciplinas = disciplinasModal.querySelector('.close-button');
 
-    // Event listener para os botões "Disciplinas" (delegação)
-    userTableContainer.addEventListener('click', function(event) {
-        const disciplinaButton = event.target.closest('.btn-ver-disciplinas');
-        if (disciplinaButton) {
-            event.preventDefault(); // Impede qualquer ação padrão
+    function abrirModalDisciplinas(userId, userName) {
+        modalProfessorNome.textContent = `Disciplinas ministradas por: ${userName}`;
+        modalDisciplinasList.innerHTML = '';
+        modalDisciplinasStatus.textContent = 'Carregando disciplinas...';
+        disciplinasModal.style.display = 'flex';
 
-            const userId = disciplinaButton.getAttribute('data-user-id');
-            const userName = disciplinaButton.getAttribute('data-user-name');
-
-            // Exibe o nome do professor na modal
-            modalProfessorNome.textContent = `Disciplinas ministradas por: ${userName}`;
-            modalDisciplinasList.innerHTML = ''; // Limpa a lista anterior
-            modalDisciplinasStatus.textContent = 'Carregando disciplinas...'; // Mensagem de carregamento
-            disciplinasModal.style.display = 'flex'; // Exibe a modal (usando flex para centralizar)
-
-            fetchDisciplinasProfessor(userId); // Chama a função para buscar as disciplinas via AJAX
-        }
-
-    });
-
-    /**
-     * Busca as disciplinas ministradas por um professor via AJAX e preenche a modal.
-     * @param {number} userId - O ID do professor.
-     */
-    function fetchDisciplinasProfessor(userId) {
-        // URL do endpoint que você criará (ou adaptará) para buscar as disciplinas
-        const url = `/avapm/get_disciplinas_professor.php?user_id=${encodeURIComponent(userId)}`; 
-
-        fetch(url)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Erro na requisição AJAX para obter disciplinas: ' + response.statusText);
-            }
-             // Espera que o endpoint retorne JSON
-            return response.json(); 
-        })
-        .then(data => {
-            modalDisciplinasList.innerHTML = ''; // Limpa status de carregamento ou "sem disciplinas"
-            modalDisciplinasStatus.textContent = ''; // Limpa status
-
-            if (data.length > 0) {
-                const ul = document.createElement('ul');
-                data.forEach(disciplina => {
-                    const li = document.createElement('li');
-                    li.textContent = `${disciplina.sigla} - ${disciplina.nome}`; // Assume que a resposta JSON tem sigla e nome
-                    ul.appendChild(li);
-                });
-                modalDisciplinasList.appendChild(ul);
-            } else {
-                modalDisciplinasStatus.textContent = 'Este professor não ministra nenhuma disciplina no momento.';
-            }
-        })
-        .catch(error => {
-            console.error('Erro ao carregar disciplinas do professor:', error);
-            modalDisciplinasStatus.textContent = 'Erro ao carregar disciplinas.';
-        });
+        fetch(`/avapm/get_disciplinas_professor.php?user_id=${userId}`)
+            .then(response => response.json())
+            .then(data => {
+                modalDisciplinasStatus.textContent = '';
+                if (data.length > 0) {
+                    const ul = document.createElement('ul');
+                    data.forEach(disciplina => {
+                        const li = document.createElement('li');
+                        li.textContent = `${disciplina.sigla} - ${disciplina.nome}`;
+                        ul.appendChild(li);
+                    });
+                    modalDisciplinasList.appendChild(ul);
+                } else {
+                    modalDisciplinasStatus.textContent = 'Este professor não ministra nenhuma disciplina no momento.';
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar disciplinas do professor:', error);
+                modalDisciplinasStatus.textContent = 'Erro ao carregar disciplinas.';
+            });
     }
 
-    // Event listener para o botão de fechar a modal
-    closeButtonDisciplinas.addEventListener('click', function() {
+    function fecharModalDisciplinas() {
         disciplinasModal.style.display = 'none';
-    });
+    }
 
-    // Fechar modal clicando fora dela
-    window.onclick = function(event) {
+    // Listeners para fechar a modal
+    disciplinasModal.querySelector('.close-button').addEventListener('click', fecharModalDisciplinas);
+    window.addEventListener('click', function(event) {
         if (event.target == disciplinasModal) {
-            disciplinasModal.style.display = 'none';
+            fecharModalDisciplinas();
         }
-    };
-});
-
-        }
-    };
+    });
 });
 </script>

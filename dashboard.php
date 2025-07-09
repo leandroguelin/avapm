@@ -40,8 +40,8 @@ try {
     $avaliacoes_em_aberto = $stmt_abertas->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (PDOException $e) {
-    // Em caso de erro, define uma mensagem de erro e loga o erro
-    $mensagem_erro = "Erro ao carregar dados do painel. Por favor, tente novamente mais tarde.";
+    // --- DEBUG: Exibe a mensagem de erro real do banco de dados ---
+    $mensagem_erro = "DEBUG: Erro de Banco de Dados: " . $e->getMessage();
     error_log("Erro no Dashboard: " . $e->getMessage());
 }
 
