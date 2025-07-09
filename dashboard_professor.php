@@ -4,30 +4,23 @@
 if (session_status() == PHP_SESSION_NONE) { session_start(); }
 require_once __DIR__ . '/includes/conexao.php';
 
-// --- Verificação de Login e Nível de Acesso ---
-// CORREÇÃO: A verificação agora permite que Administradores e Gerentes também acessem a página.
-$allowed_access_levels = ['PROFESSOR', 'ADMINISTRADOR', 'GERENTE'];
-$user_level = $_SESSION['nivel_acesso'] ?? '';
+// --- Verificação de Permissão ---
+require_once __DIR__ . '/includes/seguranca.php';
+verificar_permissao(basename(__FILE__), $pdo);
 
-if (!isset($_SESSION['usuario_id']) || !in_array($user_level, $allowed_access_levels)) {
-    header('Location: redireciona_usuario.php');
-    exit();
-}
 
 // --- Lógica de Visualização ---
 // Se um admin ou gerente estiver visualizando o perfil de um professor específico
 $professor_id_alvo = $_SESSION['usuario_id']; // Padrão: o próprio usuário logado
 $is_viewing_other = false;
-if (in_array($user_level, ['ADMINISTRADOR', 'GERENTE']) && isset($_GET['id']) && is_numeric($_GET['id'])) {
+if (in_array(($_SESSION['nivel_acesso'] ?? ''), ['ADMINISTRADOR', 'GERENTE']) && isset($_GET['id']) && is_numeric($_GET['id'])) {
     $professor_id_alvo = (int)$_GET['id'];
     $is_viewing_other = true;
 }
 
-// --- Busca de Dados ---
-// ... (O restante do seu código para buscar dados de desempenho para o $professor_id_alvo) ...
-
 // --- Definição de Variáveis para o Layout ---
 $page_title = "Meu Desempenho";
+$current_page = "Minhas Avaliações"; // Define a página atual para a sidebar
 $nome_usuario_logado = $_SESSION['nome_usuario'];
 
 if ($is_viewing_other) {

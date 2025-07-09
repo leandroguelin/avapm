@@ -1,18 +1,13 @@
 <?php
 // dashboard.php - Painel de Controle Principal
 
-// Inicia a sessão e inclui a conexão com o banco de dados
 if (session_status() == PHP_SESSION_NONE) { session_start(); }
 require_once __DIR__ . '/includes/conexao.php';
 
-// --- Verificação de Login e Nível de Acesso ---
-$allowed_access_levels = ['ADMINISTRADOR', 'GERENTE']; 
-$user_level = $_SESSION['nivel_acesso'] ?? '';
+// --- Verificação de Permissão ---
+require_once __DIR__ . '/includes/seguranca.php';
+verificar_permissao(basename(__FILE__), $pdo);
 
-if (!isset($_SESSION['usuario_id']) || !in_array($user_level, $allowed_access_levels)) {
-    header('Location: redireciona_usuario.php');
-    exit();
-}
 
 // --- Definições da Página ---
 $page_title = "Painel - Visão Geral";

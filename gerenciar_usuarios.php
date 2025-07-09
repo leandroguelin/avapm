@@ -9,21 +9,10 @@ if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
-// INCLUI A CONEXÃO COM O BANCO DE DADOS AQUI (SEMPRE!)
+// INCLUI A CONEXÃO E O NOVO SISTEMA DE SEGURANÇA
 require_once __DIR__ . '/includes/conexao.php'; 
-
-// Níveis de acesso permitidos para esta página
-$allowed_access_levels = ['ADMINISTRADOR', 'GERENTE']; 
-
-// Redirecionar se o usuário NÃO estiver logado OU NÃO tiver um dos níveis de acesso permitidos
-if (!isset($_SESSION['usuario_id']) || !in_array($_SESSION['nivel_acesso'], $allowed_access_levels)) {
-    $_SESSION['mensagem_feedback'] = [
-        'tipo' => 'danger',
-        'texto' => 'Você não tem permissão para acessar esta página.'
-    ];
-    header('Location: index.php'); // Redirecionar para a página de login ou dashboard
-    exit();
-}
+require_once __DIR__ . '/includes/seguranca.php';
+verificar_permissao(basename(__FILE__), $pdo);
 
 // =====================================================================
 // Lógica para processar a exclusão de usuário (Se você tiver essa lógica aqui)
