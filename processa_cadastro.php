@@ -1,5 +1,5 @@
 <?php
-// processa_cadastro.php - Processa o formulário de cadastro
+// processa_cadastro.php - Processa o formulário de cadastro (com senha simplificada)
 
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
@@ -21,12 +21,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $fonte_pagadora = $_POST['fonte_pagadora'] ?? '';
     $nome_guerra = $_POST['nome_guerra'] ?? '';
     $senha = $_POST['senha'] ?? '';
-    $confirma_senha = $_POST['confirma_senha'] ?? '';
+    // A variável confirma_senha foi removida.
 
     $erros = [];
     // Mantém os dados para pré-preencher em caso de erro
     $form_data = $_POST;
-    unset($form_data['senha'], $form_data['confirma_senha']);
+    unset($form_data['senha']); // Remove a senha do formulário de repreenchimento
 
     // --- 2. Validações ---
 
@@ -38,12 +38,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (empty($cpf)) $erros[] = 'O CPF é obrigatório.';
     if (empty($email)) $erros[] = 'O e-mail é obrigatório.';
     if (empty($senha)) $erros[] = 'A senha é obrigatória.';
-    if (empty($confirma_senha)) $erros[] = 'A confirmação de senha é obrigatória.';
+    // A validação para confirma_senha foi removida.
 
     // Validação de Senha
-    if ($senha !== $confirma_senha) {
-        $erros[] = 'A senha e a confirmação de senha não coincidem.';
-    }
+    // A comparação entre senha e confirma_senha foi removida.
     if (strlen($senha) < 6) {
         $erros[] = 'A senha deve ter no mínimo 6 caracteres.';
     }
@@ -82,8 +80,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
     
     // Limpa RG e Telefone para salvar no banco (mesmo que sejam nulos para alunos)
-    $rg_cleaned = preg_replace('/\\D/', '', $rg);
-    $telefone_cleaned = preg_replace('/\\D/', '', $telefone);
+    $rg_cleaned = preg_replace('/\D/', '', $rg);
+    $telefone_cleaned = preg_replace('/\D/', '', $telefone);
 
 
     // --- 3. Processar Resultados da Validação ---

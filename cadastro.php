@@ -203,11 +203,6 @@ unset($_SESSION['form_data']);
                     <label for="senha">Senha:</label>
                     <input type="password" id="senha" name="senha" required placeholder="Escolha uma senha forte">
                 </div>
-                <div class="form-group">
-                    <label for="confirma_senha">Confirmar Senha:</label>
-                    <input type="password" id="confirma_senha" name="confirma_senha" required placeholder="Repita sua senha">
-                </div>
-
 
                 <button type="submit" class="btn-cadastro">Cadastrar</button>
             </form>
