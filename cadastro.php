@@ -202,7 +202,7 @@ unset($_SESSION['form_data']);
                 </div>
             <?php endif; ?>
 
-            <form action="processa_cadastro.php?tipo=<?php echo htmlspecialchars($tipo_cadastro); ?>" method="POST">
+            <form action="processa_cadastro.php" method="POST">
                 <div class="form-group">
                     <label for="nome">Nome Completo:</label>
                     <input type="text" id="nome" name="nome" value="<?php echo htmlspecialchars($form_data['nome'] ?? ''); ?>" required placeholder="Seu nome completo">
