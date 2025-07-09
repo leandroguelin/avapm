@@ -5,8 +5,6 @@ if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
-// Inclui a conexão com o banco de dados
-require_once __DIR__ . '/includes/conexao.php';
 
 // Busca configurações para usar o logo e favicon dinâmicos (se aplicável para páginas públicas)
 try {
@@ -23,35 +21,32 @@ $mensagem_feedback = $_SESSION['mensagem_feedback']['texto'] ?? '';
 $feedback_tipo = $_SESSION['mensagem_feedback']['tipo'] ?? '';
 unset($_SESSION['mensagem_feedback']);
 
-// --- Lógica para Obter o Tipo de Cadastro e Carregar Dados para Dropdowns (se for professor) ---
-$tipo_cadastro = $_GET['tipo'] ?? 'aluno'; // 'aluno' por padrão
+// Inclui a conexão com o banco de dados
+require_once __DIR__ . '/includes/conexao.php';
+
+// --- Lógica para Carregar Dados para Dropdowns (sempre carrega todos) ---
 
 $patentes = [];
 $titulacoes = [];
 $instituicoes = [];
 
-// Só busca os dados para dropdowns se o cadastro for de professor
-if ($tipo_cadastro === 'professor') {
-    try {
-        // Carregar Patentes (puxando sigla)
-        $stmt_patentes = $pdo->query("SELECT sigla FROM patente ORDER BY sigla ASC");
-        $patentes = $stmt_patentes->fetchAll(PDO::FETCH_COLUMN);
+try {
+    // Carregar Patentes (puxando sigla)
+    $stmt_patentes = $pdo->query("SELECT sigla FROM patente ORDER BY sigla ASC");
+    $patentes = $stmt_patentes->fetchAll(PDO::FETCH_COLUMN);
 
-        // Carregar Titulações (puxando o nome)
-        $stmt_titulacoes = $pdo->query("SELECT nome FROM titulacao ORDER BY nome ASC");
-        $titulacoes = $stmt_titulacoes->fetchAll(PDO::FETCH_COLUMN);
+    // Carregar Titulações (puxando o nome)
+    $stmt_titulacoes = $pdo->query("SELECT nome FROM titulacao ORDER BY nome ASC");
+    $titulacoes = $stmt_titulacoes->fetchAll(PDO::FETCH_COLUMN);
 
-        // Carregar Instituições (para 'instituicao' e 'fonte_pagadora')
-        $stmt_instituicoes = $pdo->query("SELECT sigla FROM instituicao ORDER BY sigla ASC");
-        $instituicoes = $stmt_instituicoes->fetchAll(PDO::FETCH_COLUMN);
+    // Carregar Instituições (para 'instituicao' e 'fonte_pagadora')
+    $stmt_instituicoes = $pdo->query("SELECT sigla FROM instituicao ORDER BY sigla ASC");
+    $instituicoes = $stmt_instituicoes->fetchAll(PDO::FETCH_COLUMN);
 
-    } catch (PDOException $e) {
-        // Em caso de erro ao carregar dropdowns, define uma mensagem e loga o erro
-        $mensagem_feedback = "Erro ao carregar opções para o formulário: " . $e->getMessage();
-        $feedback_tipo = 'danger';
-        error_log("Erro PDO ao carregar dropdowns para cadastro.php: " . $e->getMessage());
-        // Não redireciona, apenas exibe a mensagem de erro no formulário
-    }
+} catch (PDOException $e) {
+    $mensagem_feedback = "Erro ao carregar opções para o formulário: " . $e->getMessage();
+    $feedback_tipo = 'danger';
+    error_log("Erro PDO ao carregar dropdowns para cadastro.php: " . $e->getMessage());
 }
 
 // Recupera dados do formulário da sessão em caso de erro anterior
@@ -64,7 +59,7 @@ unset($_SESSION['form_data']);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cadastro<?php echo ($tipo_cadastro === 'professor' ? ' de Professor' : ' de Aluno'); ?> - AVAPM</title>
+    <title>Cadastro - AVAPM</title>
     <link rel="icon" href="<?php echo htmlspecialchars($favicon_path); ?>" type="image/x-icon">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
@@ -194,7 +189,7 @@ unset($_SESSION['form_data']);
     <div class="cadastro-container">
         <div class="card">
             <a href="index.php"><img src="<?php echo htmlspecialchars($logo_path); ?>" alt="Logo do Sistema" class="logo"></a>
-            <h2>Crie sua Conta<?php echo ($tipo_cadastro === 'professor' ? ' de Professor' : ' de Aluno'); ?></h2>
+            <h2>Crie sua Conta</h2>
 
             <?php if (!empty($mensagem_feedback)): ?>
                 <div class="alert alert-<?php echo htmlspecialchars($feedback_tipo); ?>">
@@ -202,7 +197,7 @@ unset($_SESSION['form_data']);
                 </div>
             <?php endif; ?>
 
-            <form action="debug_cadastro_post.php" method="POST">
+            <form action="processa_cadastro.php" method="POST">
                 <div class="form-group">
                     <label for="nome">Nome Completo:</label>
                     <input type="text" id="nome" name="nome" value="<?php echo htmlspecialchars($form_data['nome'] ?? ''); ?>" required placeholder="Seu nome completo">
@@ -224,70 +219,78 @@ unset($_SESSION['form_data']);
                     <input type="password" id="confirmar_senha" name="confirmar_senha" required placeholder="Repita sua senha">
                 </div>
 
-                <?php if ($tipo_cadastro === 'professor'): ?>
-                    <!-- Campos específicos para cadastro de Professor -->
-                    <div class="form-group">
-                        <label for="rg">RG:</label>
-                        <input type="text" id="rg" name="rg" value="<?php echo htmlspecialchars($form_data['rg'] ?? ''); ?>" required placeholder="Seu RG (somente números)">
-                    </div>
-                     <div class="form-group">
-                        <label for="telefone">Telefone:</label>
-                        <input type="text" id="telefone" name="telefone" value="<?php echo htmlspecialchars($form_data['telefone'] ?? ''); ?>" required placeholder="Seu Telefone (com DDD)">
-                    </div>
+                 <div class="form-group">
+                    <label for="nivel_acesso">Nível de Acesso:</label>
+                    <select id="nivel_acesso" name="nivel_acesso" required>
+                        <option value="">Selecione o Nível</option>
+                        <option value="ALUNO" <?php echo (($form_data['nivel_acesso'] ?? '') == 'ALUNO') ? 'selected' : ''; ?>>Aluno</option>
+                        <option value="PROFESSOR" <?php echo (($form_data['nivel_acesso'] ?? '') == 'PROFESSOR') ? 'selected' : ''; ?>>Professor</option>
+                    </select>
+                </div>
 
-                    <div class="form-group">
-                        <label for="patente">Patente:</label>
-                        <select id="patente" name="patente" required>
-                            <option value="">Selecione a Patente</option>
-                            <?php foreach ($patentes as $sigla_patente): ?>
-                                <option value="<?php echo htmlspecialchars($sigla_patente); ?>"
-                                    <?php echo (($form_data['patente'] ?? '') == $sigla_patente) ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($sigla_patente); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
+                <!-- Campos específicos para cadastro de Professor (sempre visíveis) -->
+                <div class="form-group">
+                    <label for="rg">RG:</label>
+                    <input type="text" id="rg" name="rg" value="<?php echo htmlspecialchars($form_data['rg'] ?? ''); ?>" placeholder="Seu RG (somente números)">
+                </div>
+                 <div class="form-group">
+                    <label for="telefone">Telefone:</label>
+                    <input type="text" id="telefone" name="telefone" value="<?php echo htmlspecialchars($form_data['telefone'] ?? ''); ?>" placeholder="Seu Telefone (com DDD)">
+                </div>
 
-                    <div class="form-group">
-                        <label for="titulacao">Titulação:</label>
-                        <select id="titulacao" name="titulacao" required>
-                            <option value="">Selecione a Titulação</option>
-                            <?php foreach ($titulacoes as $nome_titulacao): ?>
-                                <option value="<?php echo htmlspecialchars($nome_titulacao); ?>"
-                                    <?php echo (($form_data['titulacao'] ?? '') == $nome_titulacao) ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($nome_titulacao); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
+                <div class="form-group">
+                    <label for="patente">Patente:</label>
+                    <select id="patente" name="patente">
+                        <option value="">Selecione a Patente</option>
+                        <?php foreach ($patentes as $sigla_patente): ?>
+                            <option value="<?php echo htmlspecialchars($sigla_patente); ?>"
+                                <?php echo (($form_data['patente'] ?? '') == $sigla_patente) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($sigla_patente); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
 
-                    <div class="form-group">
-                        <label for="instituicao">Instituição:</label>
-                         <select id="instituicao" name="instituicao" required>
-                            <option value="">Selecione a Instituição</option>
-                            <?php foreach ($instituicoes as $sigla_instituicao): ?>
-                                <option value="<?php echo htmlspecialchars($sigla_instituicao); ?>"
-                                    <?php echo (($form_data['instituicao'] ?? '') == $sigla_instituicao) ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($sigla_instituicao); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
+                <div class="form-group">
+                    <label for="titulacao">Titulação:</label>
+                    <select id="titulacao" name="titulacao">
+                        <option value="">Selecione a Titulação</option>
+                        <?php foreach ($titulacoes as $nome_titulacao): ?>
+                            <option value="<?php echo htmlspecialchars($nome_titulacao); ?>"
+                                <?php echo (($form_data['titulacao'] ?? '') == $nome_titulacao) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($nome_titulacao); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
 
-                    <div class="form-group">
-                        <label for="fonte_pagadora">Fonte Pagadora:</label>
-                         <select id="fonte_pagadora" name="fonte_pagadora" required>
-                            <option value="">Selecione a Fonte Pagadora</option>
-                            <?php foreach ($instituicoes as $sigla_instituicao): ?>
-                                <option value="<?php echo htmlspecialchars($sigla_instituicao); ?>"
-                                    <?php echo (($form_data['fonte_pagadora'] ?? '') == $sigla_instituicao) ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($sigla_instituicao); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
+                <div class="form-group">
+                    <label for="instituicao">Instituição:</label>
+                     <select id="instituicao" name="instituicao">
+                        <option value="">Selecione a Instituição</option>
+                        <?php foreach ($instituicoes as $sigla_instituicao): ?>
+                            <option value="<?php echo htmlspecialchars($sigla_instituicao); ?>"
+                                <?php echo (($form_data['instituicao'] ?? '') == $sigla_instituicao) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($sigla_instituicao); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
 
-                    <div class="form-group">
+                <div class="form-group">
+                    <label for="fonte_pagadora">Fonte Pagadora:</label>
+                     <select id="fonte_pagadora" name="fonte_pagadora">
+                        <option value="">Selecione a Fonte Pagadora</option>
+                        <?php foreach ($instituicoes as $sigla_instituicao): ?>
+                            <option value="<?php echo htmlspecialchars($sigla_instituicao); ?>"
+                                <?php echo (($form_data['fonte_pagadora'] ?? '') == $sigla_instituicao) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($sigla_instituicao); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="form-group">
                         <label for="nome_guerra">Nome de Guerra:</label>
                         <input type="text" id="nome_guerra" name="nome_guerra" value="<?php echo htmlspecialchars($form_data['nome_guerra'] ?? ''); ?>" placeholder="Seu nome de guerra (opcional)">
                     </div>
@@ -299,11 +302,7 @@ unset($_SESSION['form_data']);
             </form>
             <div class="links-login">
                 Já tem uma conta? <a href="login.php">Faça login aqui</a>
-                <?php if ($tipo_cadastro !== 'professor'): ?>
-                    <br>É professor? <a href="cadastro.php?tipo=professor">Cadastre-se aqui</a>
-                <?php else: ?>
-                     <br>É aluno? <a href="cadastro.php">Cadastre-se aqui</a>
-                <?php endif; ?>
+                <!-- Links para alternar entre cadastro de Aluno/Professor removidos -->
             </div>
 
              <?php

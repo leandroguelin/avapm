@@ -8,8 +8,8 @@ if (session_status() == PHP_SESSION_NONE) {
 require_once __DIR__ . '/includes/conexao.php';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    // Obtém o tipo de cadastro da URL (default é 'aluno')
-    $tipo_cadastro = $_GET['tipo'] ?? 'aluno';
+    // Obtém o nível de acesso selecionado pelo usuário
+    $nivel_acesso = $_POST['nivel_acesso'] ?? 'ALUNO'; // Default para ALUNO se não for enviado
 
     // Obtém os dados básicos do formulário
     $nome = $_POST['nome'] ?? '';
@@ -42,16 +42,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 
     // Validação de Senha
+    echo "<pre>Debug Senha:\n";
+    var_dump($senha);
+    echo "Debug Confirma Senha:\n";
+    var_dump($confirma_senha);
+    echo "</pre>";
     if ($senha !== $confirma_senha) {
         $erros[] = 'A senha e a confirmação de senha não coincidem.';
     }
      if (strlen($senha) < 6) { // Exemplo de validação de força de senha
-         $erros[] = 'A senha deve ter no mínimo 6 caracteres.';
-     }
-
-
-    // Validação do CPF (formato básico, você pode adicionar uma validação mais complexa se necessário)
-    // Remove caracteres não numéricos
     $cpf_numerico = preg_replace('/[^0-9]/', '', $cpf);
     $form_data['cpf'] = $cpf_numerico; // Salva o CPF limpo no form_data
     if (strlen($cpf_numerico) != 11) {
@@ -65,13 +64,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     }
 
-
     // =====================================================================
     // Lógica Específica para Cadastro de Professor
     // =====================================================================
     $rg = $patente = $titulacao = $instituicao = $fonte_pagadora = $nome_guerra = $telefone = null; // Inicializa como null
 
-    if ($tipo_cadastro === 'professor') {
+    if ($nivel_acesso === 'PROFESSOR') {
+
         // Obtém campos adicionais para professor
         $rg = $_POST['rg'] ?? '';
         $patente = $_POST['patente'] ?? '';
@@ -79,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $instituicao = $_POST['instituicao'] ?? '';
         $fonte_pagadora = $_POST['fonte_pagadora'] ?? '';
         $nome_guerra = $_POST['nome_guerra'] ?? ''; // Certifique-se de que este campo existe no seu formulário e DB
-        $telefone = $_POST['telefone'] ?? '';
+        $telefone = $_POST['telefone'] ?? ''; // Certifique-se de que este campo existe no seu formulário e DB
 
          // Adiciona os campos específicos de professor ao form_data
          $form_data['rg'] = $rg;
@@ -89,7 +88,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
          $form_data['fonte_pagadora'] = $fonte_pagadora;
          $form_data['nome_guerra'] = $nome_guerra;
          $form_data['telefone'] = $telefone;
-
 
         // Validação de campos obrigatórios para Professor
         if (empty($rg)) $erros[] = 'O RG é obrigatório para professores.';
@@ -101,7 +99,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         // Nome de Guerra pode ser opcional dependendo da sua regra de negócio
         // if (empty($nome_guerra)) $erros[] = 'O Nome de Guerra é obrigatório para professores.';
 
-
         // Validação de formato para RG e Telefone (exemplo básico)
          $rg_cleaned = preg_replace('/\\D/', '', $rg);
          if (!empty($rg) && !ctype_digit($rg_cleaned)) {
@@ -111,13 +108,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
          }
 
 
-         $telefone_cleaned = preg_replace('/\\D/', '', $telefone);
+         $telefone_cleaned = preg_replace('/[^0-9]/', '', $telefone);
          if (!empty($telefone) && (strlen($telefone_cleaned) < 10 || strlen($telefone_cleaned) > 11)) {
              $erros[] = 'Formato de Telefone inválido. O Telefone deve conter 10 ou 11 dígitos (incluindo DDD).';
          } else {
              $form_data['telefone'] = $telefone_cleaned; // Salva o Telefone limpo no form_data
          }
-
         $nivel_acesso = 'PROFESSOR';
 
     } else {
@@ -139,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $_SESSION['form_data'] = $form_data;
 
         header('Location: cadastro.php' . ($tipo_cadastro === 'professor' ? '?tipo=professor' : '')); // Redireciona de volta para a página de cadastro correta
-        exit();
+        exit;
     } else {
         // Validação bem-sucedida, inserir no banco de dados
         $senha_hashed = password_hash($senha, PASSWORD_DEFAULT);
@@ -170,7 +166,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     'texto' => 'Cadastro realizado com sucesso! Faça login para continuar.'
                 ];
                 header('Location: login.php'); // Redireciona para a página de login após o cadastro
-                exit();
+                exit;
             } else {
                 // Erro na execução da query (pode ser duplicidade não pega pelas validações, erro de schema, etc.)
                  error_log('Erro na execução da query de inserção: ' . print_r($stmt_insert->errorInfo(), true)); // Loga detalhes do erro da query
@@ -179,7 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     'texto' => 'Ocorreu um erro ao salvar seu cadastro no banco de dados. Tente novamente.'
                 ];
                 $_SESSION['form_data'] = $form_data;
-                header('Location: cadastro.php' . ($tipo_cadastro === 'professor' ? '?tipo=professor' : ''));
+                header('Location: cadastro.php'); // Redireciona de volta para a página de cadastro
                 exit();
             }
 
@@ -191,14 +187,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 'texto' => 'Ocorreu um erro interno do servidor ao processar seu cadastro. Tente novamente mais tarde.'
             ];
             $_SESSION['form_data'] = $form_data;
-             header('Location: cadastro.php' . ($tipo_cadastro === 'professor' ? '?tipo=professor' : ''));
-            exit();
+             header('Location: cadastro.php'); // Redireciona de volta para a página de cadastro
+            exit;
         }
-    }
-
 } else {
     // Acesso direto ao script sem POST
     header('Location: cadastro.php'); // Redireciona para a página de cadastro
-    exit();
+    exit;
 }
 ?>
