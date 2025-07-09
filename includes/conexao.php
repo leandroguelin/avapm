@@ -19,6 +19,10 @@ try {
     // Define o modo de erro para exceção
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
+    // --- CORREÇÃO: Define a codificação do cliente para UTF-8 ---
+    // Isso garante que os caracteres especiais sejam tratados corretamente.
+    $pdo->exec("SET client_encoding TO 'UTF8'");
+
     // echo "Conexão bem-sucedida!";
 
 } catch (PDOException $e) {
