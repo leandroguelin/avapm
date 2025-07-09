@@ -53,7 +53,6 @@ $isAvaliacoesMenuActive = in_array($current_page, $avaliacoes_pages);
                         <li><a href="gerenciar_questionario.php" class="sidebar-link <?php echo ($current_page == 'Questionário') ? 'active' : ''; ?>">Questionário</a></li>
                         <!-- <li><a href="relatorios.php" class="sidebar-link <?php echo ($current_page == 'Relatórios') ? 'active' : ''; ?>">Relatórios</a></li> -->
                         <li><a href="/avapm/log.php" class="sidebar-link <?php echo ($current_page == 'Log de Logins') ? 'active' : ''; ?>">Log de Logins</a></li>
-<<<<<<< HEAD
                     </ul>
                 </li>
 
@@ -65,38 +64,7 @@ $isAvaliacoesMenuActive = in_array($current_page, $avaliacoes_pages);
                             <i class="fas fa-chevron-down submenu-arrow"></i>
                         </a>
                         <ul class="collapse list-unstyled submenu <?php echo $isAdminMenuActive ? 'show' : ''; ?>" id="adminSubmenu">
-=======
-                    </ul>
-                </li>
-                
-                <?php if ($nivel_acesso_usuario === 'ADMINISTRADOR'): ?>
-                <li class="sidebar-item <?php echo $isAdminMenuActive ? '' : 'collapsed'; ?>">
-                    <a href="#adminSubmenu" data-toggle="collapse" class="sidebar-link <?php echo $isAdminMenuActive ? '' : 'collapsed'; ?>" aria-expanded="<?php echo $isAdminMenuActive ? 'true' : 'false'; ?>">
-                        <i class="fas fa-shield-alt fa-fw"></i>
-                        <span>Administração</span>
-                        <i class="fas fa-chevron-down submenu-arrow"></i>
-                    </a>
-                    <ul class="collapse list-unstyled submenu <?php echo $isAdminMenuActive ? 'show' : ''; ?>" id="adminSubmenu">
 
-                        <li><a href="credenciais.php" class="sidebar-link <?php echo ($current_page == 'Gerenciar Credenciais') ? 'active' : ''; ?>">Gerenciar Credenciais</a></li>
-                        <li><a href="gerenciar_usuarios.php" class="sidebar-link <?php echo ($current_page == 'Usuários') ? 'active' : ''; ?>">Usuários</a></li>
-                        <li><a href="gerenciar_cursos.php" class="sidebar-link <?php echo ($current_page == 'Cursos') ? 'active' : ''; ?>">Cursos</a></li>
-                        <li><a href="gerenciar_disciplinas.php" class="sidebar-link <?php echo ($current_page == 'Disciplinas') ? 'active' : ''; ?>">Disciplinas</a></li>
-
-
-                    </ul>
-                </li>
-
-                <li class="sidebar-item">
-                    <a href="configuracoes.php" class="sidebar-link <?php echo ($current_page == 'Configurações') ? 'active' : ''; ?>">
-                        <i class="fas fa-cogs fa-fw"></i> 
-                        <span>Configurações</span>
-                    </a>
-                </li>
-            <?php endif; ?>
->>>>>>> fec0187 (v5)
-
-<<<<<<< HEAD
                             <li><a href="credenciais.php" class="sidebar-link <?php echo ($current_page == 'Gerenciar Credenciais') ? 'active' : ''; ?>">Gerenciar Credenciais</a></li>
                             <li><a href="gerenciar_usuarios.php" class="sidebar-link <?php echo ($current_page == 'Usuários') ? 'active' : ''; ?>">Usuários</a></li>
                             <li><a href="gerenciar_cursos.php" class="sidebar-link <?php echo ($current_page == 'Cursos') ? 'active' : ''; ?>">Cursos</a></li>
@@ -112,16 +80,6 @@ $isAvaliacoesMenuActive = in_array($current_page, $avaliacoes_pages);
                             <span>Configurações</span>
                         </a>
                     </li>
-=======
-            <?php if ($nivel_acesso_usuario === 'PROFESSOR' || $nivel_acesso_usuario === 'ALUNO'): ?>
-                <li class="menu-header"><span>Área do Professor</span></li>
-                <li class="sidebar-item">
-                    <a href="minhas_disciplinas.php" class="sidebar-link <?php echo ($current_page == 'Minhas Disciplinas') ? 'active' : ''; ?>">
-                        <i class="fas fa-book fa-fw"></i> 
-                        <span>Minhas Disciplinas</span>
-                    </a>
-                </li>
->>>>>>> 1ef5e8e (f1)
                 <?php endif; ?>
 
                 <?php if ($nivel_acesso_usuario === 'PROFESSOR' || $nivel_acesso_usuario === 'ALUNO'): ?>
@@ -143,7 +101,6 @@ $isAvaliacoesMenuActive = in_array($current_page, $avaliacoes_pages);
         </ul>
     </nav>
 </aside>
-<<<<<<< HEAD
 
 php
 <?php endif; ?>
@@ -164,24 +121,3 @@ php
         <span>Sair</span>
     </a>
 </li>
-=======
-php
-                  <?php endif; ?>
-
-              <?php if ($nivel_acesso_usuario === 'PROFESSOR' || $nivel_acesso_usuario === 'ALUNO'): ?>
-                  <li class="menu-header"><span>Área do Professor</span></li>
-                  <li class="sidebar-item">
-                      <a href="minhas_disciplinas.php" class="sidebar-link <?php echo ($current_page == 'Minhas Disciplinas') ? 'active' : ''; ?>">
-                          <i class="fas fa-book fa-fw"></i>
-                          <span>Minhas Disciplinas</span>
-                      </a>
-                  </li>
-                  <?php endif; ?>
-
-              <li class="sidebar-item logout-item">
-                  <a href="logout.php" class="sidebar-link">
-                      <i class="fas fa-sign-out-alt fa-fw"></i>
-                      <span>Sair</span>
-                  </a>
-              </li>
->>>>>>> 1ef5e8e (f1)
