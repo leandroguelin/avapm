@@ -210,7 +210,7 @@ unset($_SESSION['form_data']);
                 </div>
                 <div class="form-group">
                     <label for="cpf">CPF:</label>
-                    <input type="text" id="cpf" name="cpf" value="<?php echo htmlspecialchars($form_data['cpf'] ?? ''); ?>" required placeholder="Seu CPF (somente números)" pattern="\d{11}" title="Por favor, insira um CPF válido com 11 dígitos.">
+                    <input type="text" id="cpf" name="cpf" value="<?php echo htmlspecialchars($form_data['cpf'] ?? ''); ?>" required placeholder="Seu CPF (somente números)" title="Por favor, insira um CPF válido com 11 dígitos.">
                 </div>
                 <div class="form-group">
                     <label for="email">E-mail:</label>
