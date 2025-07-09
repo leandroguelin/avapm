@@ -5,30 +5,47 @@ if (session_status() == PHP_SESSION_NONE) { session_start(); }
 require_once __DIR__ . '/includes/conexao.php';
 
 // --- Verificação de Login e Nível de Acesso ---
-// CORREÇÃO: A verificação agora é consistente e em MAIÚSCULAS
+// CORREÇÃO: A verificação agora permite que Administradores e Gerentes também acessem a página.
+$allowed_access_levels = ['PROFESSOR', 'ADMINISTRADOR', 'GERENTE'];
 $user_level = $_SESSION['nivel_acesso'] ?? '';
 
-if (!isset($_SESSION['usuario_id']) || $user_level !== 'PROFESSOR') {
+if (!isset($_SESSION['usuario_id']) || !in_array($user_level, $allowed_access_levels)) {
     header('Location: redireciona_usuario.php');
     exit();
 }
 
-// --- O restante do seu código do dashboard do professor continua aqui ---
-// ... (busca de dados de desempenho, etc.) ...
-?>
+// --- Lógica de Visualização ---
+// Se um admin ou gerente estiver visualizando o perfil de um professor específico
+$professor_id_alvo = $_SESSION['usuario_id']; // Padrão: o próprio usuário logado
+$is_viewing_other = false;
+if (in_array($user_level, ['ADMINISTRADOR', 'GERENTE']) && isset($_GET['id']) && is_numeric($_GET['id'])) {
+    $professor_id_alvo = (int)$_GET['id'];
+    $is_viewing_other = true;
+}
+
+// --- Busca de Dados ---
+// ... (O restante do seu código para buscar dados de desempenho para o $professor_id_alvo) ...
 
 // --- Definição de Variáveis para o Layout ---
 $page_title = "Meu Desempenho";
 $nome_usuario_logado = $_SESSION['nome_usuario'];
-$id_professor_logado = $_SESSION['usuario_id'];
 
+if ($is_viewing_other) {
+    // Busca o nome do professor alvo para exibir no título
+    $stmt_nome = $pdo->prepare("SELECT nome FROM usuario WHERE id = :id");
+    $stmt_nome->execute([':id' => $professor_id_alvo]);
+    $nome_professor_alvo = $stmt_nome->fetchColumn();
+    if ($nome_professor_alvo) {
+        $page_title = "Desempenho de: " . htmlspecialchars($nome_professor_alvo);
+    }
+}
 
 // =============================================================
 // BUSCA E PROCESSAMENTO DE DADOS
 // =============================================================
 $resultados_por_curso = [];
 try {
-    // Esta consulta SQL busca todas as respostas dadas ao professor logado,
+    // Esta consulta SQL busca todas as respostas dadas ao professor alvo,
     // calcula a média para cada pergunta e agrupa os resultados por curso.
     $stmt = $pdo->prepare("
         SELECT
@@ -43,13 +60,13 @@ try {
             cursos c ON r.curso_sigla = c.sigla
         WHERE
             r.categoria = 'Professor'
-            AND r.avaliado = :id_professor_logado
+            AND r.avaliado = :id_professor_alvo
         GROUP BY
             c.id, c.nome, c.sigla, r.pergunta
         ORDER BY
             c.nome ASC, r.pergunta ASC
     ");
-    $stmt->execute([':id_professor_logado' => $id_professor_logado]);
+    $stmt->execute([':id_professor_alvo' => $professor_id_alvo]);
     $resultados_query = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // Organiza os resultados em um array aninhado para facilitar a exibição
@@ -89,14 +106,16 @@ function getProgressBarColor($nota) {
 
 <div class="main-content-dashboard">
     <div class="dashboard-header">
-        <h1>Meu Desempenho nas Avaliações</h1>
-        <p class="lead" style="color: #6c757d;">Aqui estão os resultados consolidados das suas avaliações, agrupados por curso.</p>
+        <h1><?php echo htmlspecialchars($page_title); ?></h1>
+        <?php if (!$is_viewing_other): ?>
+            <p class="lead" style="color: #6c757d;">Aqui estão os resultados consolidados das suas avaliações, agrupados por curso.</p>
+        <?php endif; ?>
     </div>
 
     <?php if (isset($erro_db)): ?>
         <div class="alert alert-danger">Não foi possível carregar os resultados. Tente novamente mais tarde.</div>
     <?php elseif (empty($resultados_por_curso)): ?>
-        <div class="alert alert-info">Ainda não há avaliações sobre seu desempenho registradas no sistema.</div>
+        <div class="alert alert-info">Ainda não há avaliações de desempenho registradas para este professor.</div>
     <?php else: ?>
         <?php foreach ($resultados_por_curso as $curso): ?>
             <div class="dashboard-section">
