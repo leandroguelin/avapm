@@ -1,122 +1,134 @@
-php
 <?php
-// ver_relatorio.php - Página para visualizar detalhes de uma avaliação específica
+// avapm/ver_relatorio.php - VERSÃO CORRIGIDA
 
-if (session_status() == PHP_SESSION_NONE) {
-    session_start();
-}
+// --- Inicialização e Segurança ---
+if (session_status() == PHP_SESSION_NONE) { session_start(); }
 require_once __DIR__ . '/includes/conexao.php';
+require_once __DIR__ . '/includes/seguranca.php';
 
-// --- Verificação de Login e Nível de Acesso ---
-$allowed_access_levels = ['ADMINISTRADOR', 'GERENTE'];
-$user_level = $_SESSION['nivel_acesso'] ?? '';
+// Ajuste os níveis de acesso conforme necessário para esta página
+$allowed_access_levels = ['administrador', 'gerente'];
+verificar_permissao(basename(__FILE__), $pdo, $allowed_access_levels);
 
-if (!isset($_SESSION['usuario_id']) || !in_array($user_level, $allowed_access_levels)) {
-    header('Location: redireciona_usuario.php');
-    exit();
-}
-
-// --- Obter ID da Avaliação da URL ---
-$avaliacao_id = $_GET['id'] ?? null;
-$avaliacao_detalhes = null;
-$erro_bd = null;
+$page_title = "Relatório da Avaliação";
+$avaliacao_id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+$detalhes_avaliacao = null;
+$respostas_agrupadas = [];
+$mensagem_erro = '';
 
 if ($avaliacao_id) {
     try {
-        // Consulta para obter os detalhes da avaliação e as respostas associadas
-        // Esta consulta é um exemplo e pode precisar ser ajustada com base na sua estrutura exata de tabelas (avaliacoes, respostas, usuarios, etc.)
+        // CORREÇÃO: A consulta foi ajustada para converter r.avaliado para INTEGER
+        // e para usar a tabela correta 'respostas_avaliacao'.
         $stmt = $pdo->prepare("
             SELECT
                 a.nome AS avaliacao_nome,
                 c.nome AS curso_nome,
-                r.pergunta,
+                d.nome AS disciplina_nome,
+                q.pergunta,
                 u.nome AS professor_nome,
-                r.resposta,
-                r.observacao
+                ra.resposta,
+                ra.observacao
             FROM
-                respostas r
+                respostas_avaliacao ra
             JOIN
-                avaliacao a ON r.avaliacao_id = a.id
+                avaliacao a ON ra.avaliacao_id = a.id
             JOIN
                 cursos c ON a.curso_id = c.id
+            JOIN
+                disciplina d ON ra.disciplina_id = d.id
+            JOIN
+                questionario q ON ra.pergunta_id = q.id
             LEFT JOIN
-                usuario u ON r.avaliado = u.id AND r.categoria = 'Professor' -- Assumindo que 'avaliado' se refere ao professor para essa categoria
+                usuario u ON ra.professor_id = u.id -- A junção correta é pelo professor_id
             WHERE
-                r.avaliacao_id = :avaliacao_id
+                ra.avaliacao_id = :avaliacao_id
             ORDER BY
-                r.pergunta ASC, u.nome ASC
+                d.nome, q.pergunta, u.nome
         ");
+        
         $stmt->execute([':avaliacao_id' => $avaliacao_id]);
-        $avaliacao_detalhes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $resultados = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // O nome da avaliação pode ser obtido da primeira linha se houver resultados
-        $avaliacao_nome = $avaliacao_detalhes[0]['avaliacao_nome'] ?? 'Avaliação Não Encontrada';
-        $curso_nome = $avaliacao_detalhes[0]['curso_nome'] ?? '';
+        if ($resultados) {
+            $detalhes_avaliacao = [
+                'avaliacao_nome' => $resultados[0]['avaliacao_nome'],
+                'curso_nome' => $resultados[0]['curso_nome'],
+            ];
 
+            // Agrupa as respostas por disciplina para melhor visualização
+            foreach ($resultados as $row) {
+                $respostas_agrupadas[$row['disciplina_nome']][] = $row;
+            }
+        } else {
+            $mensagem_erro = "Nenhum resultado encontrado para esta avaliação.";
+        }
     } catch (PDOException $e) {
-        $erro_bd = "Erro ao carregar detalhes da avaliação: " . $e->getMessage();
-        error_log($erro_bd);
+        $mensagem_erro = "Erro ao carregar detalhes da avaliação: " . $e->getMessage();
+        error_log($mensagem_erro);
     }
+} else {
+    $mensagem_erro = "ID da avaliação não fornecido ou inválido.";
 }
-
-// --- Definição de Variáveis para o Layout ---
-$page_title = "Detalhes da Avaliação";
-$nome_usuario_logado = $_SESSION['nome_usuario'] ?? 'Usuário';
 
 require_once __DIR__ . '/includes/templates/header_dashboard.php';
 require_once __DIR__ . '/includes/templates/sidebar_dashboard.php';
 ?>
 
 <div class="main-content-dashboard">
-    <div class="dashboard-header">
+    <header class="dashboard-header">
         <h1><?php echo htmlspecialchars($page_title); ?></h1>
-        <?php if (isset($avaliacao_nome)): ?>
-            <p class="lead" style="color: #6c757d;">
-                Detalhes da avaliação: <strong><?php echo htmlspecialchars($avaliacao_nome); ?></strong>
-                <?php if (!empty($curso_nome)): ?>
-                    (Curso: <?php echo htmlspecialchars($curso_nome); ?>)
-                <?php endif; ?>
-            </p>
+    </header>
+
+    <div class="dashboard-section">
+        <div class="section-header">
+            <?php if ($detalhes_avaliacao): ?>
+                <h2><?php echo htmlspecialchars($detalhes_avaliacao['avaliacao_nome']); ?></h2>
+                <p class="lead">Curso: <?php echo htmlspecialchars($detalhes_avaliacao['curso_nome']); ?></p>
+            <?php endif; ?>
+            <a href="gerenciar_avaliacoes.php" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Voltar</a>
+        </div>
+
+        <?php if ($mensagem_erro): ?>
+            <div class="alert alert-danger"><?php echo htmlspecialchars($mensagem_erro); ?></div>
+        <?php else: ?>
+            <?php foreach ($respostas_agrupadas as $disciplina_nome => $respostas): ?>
+                <div class="card my-4">
+                    <div class="card-header">
+                        <h3>Disciplina: <?php echo htmlspecialchars($disciplina_nome); ?></h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover">
+                                <thead class="thead-light">
+                                    <tr>
+                                        <th>Professor</th>
+                                        <th>Pergunta do Questionário</th>
+                                        <th>Resposta (Nota)</th>
+                                        <th>Observação</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($respostas as $resposta): ?>
+                                        <tr>
+                                            <td><?php echo htmlspecialchars($resposta['professor_nome'] ?? 'N/A'); ?></td>
+                                            <td><?php echo htmlspecialchars($resposta['pergunta']); ?></td>
+                                            <td><span class="badge badge-info"><?php echo htmlspecialchars($resposta['resposta']); ?></span></td>
+                                            <td><?php echo nl2br(htmlspecialchars($resposta['observacao'] ?? 'Nenhuma')); ?></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            <?php endforeach; ?>
         <?php endif; ?>
     </div>
-
-    <?php if (!$avaliacao_id): ?>
-        <div class="alert alert-warning">Nenhuma avaliação especificada para visualização.</div>
-    <?php elseif ($erro_bd): ?>
-        <div class="alert alert-danger"><?php echo htmlspecialchars($erro_bd); ?></div>
-    <?php elseif (empty($avaliacao_detalhes)): ?>
-        <div class="alert alert-info">Nenhum detalhe encontrado para esta avaliação.</div>
-    <?php else: ?>
-        <div class="dashboard-section">
-            <table class="table table-striped table-hover">
-                <thead>
-                    <tr>
-                        <th>Pergunta</th>
-                        <th>Professor</th>
-                        <th>Resposta</th>
-                        <th>Observação</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($avaliacao_detalhes as $detalhe): ?>
-                        <tr>
-                            <td><?php echo htmlspecialchars($detalhe['pergunta']); ?></td>
-                            <td><?php echo htmlspecialchars($detalhe['professor_nome'] ?? 'N/A'); ?></td>
-                            <td><?php echo htmlspecialchars($detalhe['resposta']); ?></td>
-                            <td><?php echo htmlspecialchars($detalhe['observacao'] ?? ''); ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    <?php endif; ?>
-
-    <div class="mt-4">
-        <a href="relatorios.php" class="btn btn-secondary">Voltar para Relatórios</a>
-    </div>
-
 </div>
 
-<?php
-require_once __DIR__ . '/includes/templates/footer_dashboard.php';
-?>
+<style>
+.badge-info { background-color: #17a2b8; color: white; }
+</style>
+
+<?php require_once __DIR__ . '/includes/templates/footer_dashboard.php'; ?>

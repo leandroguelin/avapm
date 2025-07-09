@@ -1,185 +1,186 @@
 <?php
-// dashboard_professor.php
+// avapm/dashboard_professor.php - VERSÃO COMPLETAMENTE REFEITA
 
+// --- Inicialização e Segurança ---
 if (session_status() == PHP_SESSION_NONE) { session_start(); }
 require_once __DIR__ . '/includes/conexao.php';
-
-// --- Verificação de Permissão ---
 require_once __DIR__ . '/includes/seguranca.php';
-verificar_permissao(basename(__FILE__), $pdo);
 
+// Garante que apenas professores e administradores possam ver esta página
+$allowed_access_levels = ['professor', 'administrador', 'gerente'];
+verificar_permissao(basename(__FILE__), $pdo, $allowed_access_levels);
 
-// --- Lógica de Visualização ---
-// Se um admin ou gerente estiver visualizando o perfil de um professor específico
-$professor_id_alvo = $_SESSION['usuario_id']; // Padrão: o próprio usuário logado
-$is_viewing_other = false;
-if (in_array(($_SESSION['nivel_acesso'] ?? ''), ['ADMINISTRADOR', 'GERENTE']) && isset($_GET['id']) && is_numeric($_GET['id'])) {
-    $professor_id_alvo = (int)$_GET['id'];
-    $is_viewing_other = true;
-}
+$page_title = "Painel do Professor";
+$current_page = "PainelProfessor"; // Para a sidebar
+$professor_id = $_SESSION['usuario_id'];
 
-// --- Definição de Variáveis para o Layout ---
-$page_title = "Meu Desempenho";
-$current_page = "Minhas Avaliações"; // Define a página atual para a sidebar
-$nome_usuario_logado = $_SESSION['nome_usuario'];
+// --- Busca de Dados para o Dashboard ---
+$stats = [
+    'cursos_distintos' => 0,
+    'avaliacoes_recebidas' => 0,
+];
+$notas_por_curso = [];
+$avaliacoes_individuais = [];
+$mensagem_erro = null;
 
-if ($is_viewing_other) {
-    // Busca o nome do professor alvo para exibir no título
-    $stmt_nome = $pdo->prepare("SELECT nome FROM usuario WHERE id = :id");
-    $stmt_nome->execute([':id' => $professor_id_alvo]);
-    $nome_professor_alvo = $stmt_nome->fetchColumn();
-    if ($nome_professor_alvo) {
-        $page_title = "Desempenho de: " . htmlspecialchars($nome_professor_alvo);
-    }
-}
-
-// =============================================================
-// BUSCA E PROCESSAMENTO DE DADOS
-// =============================================================
-$resultados_por_curso = [];
 try {
-    // Esta consulta SQL busca todas as respostas dadas ao professor alvo,
-    // calcula a média para cada pergunta e agrupa os resultados por curso.
-    $stmt = $pdo->prepare("
-        SELECT
-            c.id AS curso_id,
-            c.nome AS curso_nome,
-            c.sigla AS curso_sigla,
-            r.pergunta,
-            AVG(r.resposta) AS media_pergunta
-        FROM
-            respostas r
-        JOIN
-            cursos c ON r.curso_sigla = c.sigla
-        WHERE
-            r.categoria = 'Professor'
-            AND r.avaliado = :id_professor_alvo
-        GROUP BY
-            c.id, c.nome, c.sigla, r.pergunta
-        ORDER BY
-            c.nome ASC, r.pergunta ASC
+    // 1. DADOS PARA OS CARDS
+    // Contar cursos distintos em que o professor tem disciplinas
+    $stmt_cursos = $pdo->prepare("
+        SELECT COUNT(DISTINCT d.curso_id) 
+        FROM minhas_disciplinas md
+        JOIN disciplina d ON md.disciplina_id = d.id
+        WHERE md.usuario_id = :professor_id
     ");
-    $stmt->execute([':id_professor_alvo' => $professor_id_alvo]);
-    $resultados_query = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $stmt_cursos->execute([':professor_id' => $professor_id]);
+    $stats['cursos_distintos'] = $stmt_cursos->fetchColumn();
 
-    // Organiza os resultados em um array aninhado para facilitar a exibição
-    foreach ($resultados_query as $row) {
-        $curso_id = $row['curso_id'];
-        if (!isset($resultados_por_curso[$curso_id])) {
-            $resultados_por_curso[$curso_id] = [
-                'curso_nome' => $row['curso_nome'],
-                'curso_sigla' => $row['curso_sigla'],
-                'perguntas' => []
-            ];
-        }
-        $resultados_por_curso[$curso_id]['perguntas'][] = [
-            'texto' => $row['pergunta'],
-            'media' => $row['media_pergunta']
-        ];
-    }
+    // Contar total de avaliações individuais recebidas
+    $stmt_avaliacoes = $pdo->prepare("
+        SELECT COUNT(ra.id) 
+        FROM respostas_avaliacao ra
+        JOIN avaliacao a ON ra.avaliacao_id = a.id
+        WHERE ra.professor_id = :professor_id
+    ");
+    $stmt_avaliacoes->execute([':professor_id' => $professor_id]);
+    $stats['avaliacoes_recebidas'] = $stmt_avaliacoes->fetchColumn();
+
+    // 2. DADOS PARA O GRÁFICO (Média de notas por curso)
+    $stmt_grafico = $pdo->prepare("
+        SELECT c.nome AS curso_nome, AVG(ra.resposta) AS media_nota
+        FROM respostas_avaliacao ra
+        JOIN avaliacao a ON ra.avaliacao_id = a.id
+        JOIN cursos c ON a.curso_id = c.id
+        JOIN questionario q ON ra.pergunta_id = q.id
+        WHERE ra.professor_id = :professor_id AND q.categoria = 'Professor'
+        GROUP BY c.nome
+        ORDER BY c.nome
+    ");
+    $stmt_grafico->execute([':professor_id' => $professor_id]);
+    $notas_por_curso = $stmt_grafico->fetchAll(PDO::FETCH_ASSOC);
+
+    // 3. DADOS PARA A TABELA (Relatório de avaliações individuais)
+    $stmt_relatorio = $pdo->prepare("
+        SELECT a.nome AS avaliacao_nome, u.nome AS aluno_nome, q.pergunta, ra.resposta
+        FROM respostas_avaliacao ra
+        JOIN avaliacao a ON ra.avaliacao_id = a.id
+        JOIN usuario u ON ra.aluno_id = u.id
+        JOIN questionario q ON ra.pergunta_id = q.id
+        WHERE ra.professor_id = :professor_id AND q.categoria = 'Professor'
+        ORDER BY a.nome, q.pergunta
+    ");
+    $stmt_relatorio->execute([':professor_id' => $professor_id]);
+    $avaliacoes_individuais = $stmt_relatorio->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (PDOException $e) {
-    // Em caso de erro, a página não quebra, apenas exibe uma mensagem.
-    $erro_db = "Erro ao carregar os dados de avaliação: " . $e->getMessage();
-    error_log($erro_db);
+    $mensagem_erro = "Erro de Banco de Dados: " . $e->getMessage();
+    error_log("Erro no Dashboard do Professor: " . $e->getMessage());
 }
 
+// Prepara dados para o Chart.js
+$chart_labels = [];
+$chart_data = [];
+foreach ($notas_por_curso as $nota) {
+    $chart_labels[] = $nota['curso_nome'];
+    $chart_data[] = round($nota['media_nota'], 2); // Arredonda para 2 casas decimais
+}
+$chart_labels_json = json_encode($chart_labels);
+$chart_data_json = json_encode($chart_data);
 
-// Inclusão dos Templates do Dashboard
+// --- Inclusão dos Templates de Layout ---
 require_once __DIR__ . '/includes/templates/header_dashboard.php';
 require_once __DIR__ . '/includes/templates/sidebar_dashboard.php';
-
-// Função auxiliar para definir a cor da barra de progresso com base na nota
-function getProgressBarColor($nota) {
-    if ($nota >= 8) return 'bg-success'; // Verde para notas altas
-    if ($nota >= 5) return 'bg-warning'; // Amarelo para notas médias
-    return 'bg-danger'; // Vermelho para notas baixas
-}
 ?>
 
 <div class="main-content-dashboard">
-    <div class="dashboard-header">
+    <header class="dashboard-header">
         <h1><?php echo htmlspecialchars($page_title); ?></h1>
-        <?php if (!$is_viewing_other): ?>
-            <p class="lead" style="color: #6c757d;">Aqui estão os resultados consolidados das suas avaliações, agrupados por curso.</p>
-        <?php endif; ?>
-    </div>
+    </header>
 
-    <?php if (isset($erro_db)): ?>
-        <div class="alert alert-danger">Não foi possível carregar os resultados. Tente novamente mais tarde.</div>
-    <?php elseif (empty($resultados_por_curso)): ?>
-        <div class="alert alert-info">Ainda não há avaliações de desempenho registradas para este professor.</div>
+    <?php if ($mensagem_erro): ?>
+        <div class="alert alert-danger"><?php echo htmlspecialchars($mensagem_erro); ?></div>
     <?php else: ?>
-        <?php foreach ($resultados_por_curso as $curso): ?>
-            <div class="dashboard-section">
-                <h2>
-                    <i class="fas fa-graduation-cap text-primary"></i> 
-                    Curso: <?php echo htmlspecialchars($curso['curso_nome']); ?> 
-                    (<?php echo htmlspecialchars($curso['curso_sigla']); ?>)
-                </h2>
-                
-                <div class="list-group list-group-flush">
-                    <?php foreach ($curso['perguntas'] as $pergunta): ?>
-                        <div class="list-group-item">
-                            <div class="mb-2"><strong><?php echo htmlspecialchars($pergunta['texto']); ?></strong></div>
-                            <div class="d-flex align-items-center">
-                                <div class="progress" style="height: 25px; flex-grow: 1;">
-                                    <div class="progress-bar <?php echo getProgressBarColor($pergunta['media']); ?>" 
-                                         role="progressbar" 
-                                         style="width: <?php echo ($pergunta['media'] * 10); ?>%;" 
-                                         aria-valuenow="<?php echo $pergunta['media']; ?>" 
-                                         aria-valuemin="0" 
-                                         aria-valuemax="10">
-                                    </div>
-                                </div>
-                                <strong class="ml-3" style="min-width: 50px; text-align: right; font-size: 1.1rem;"><?php echo number_format($pergunta['media'], 2); ?></strong>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
+        <!-- Seção de Cartões de Estatísticas -->
+        <section class="dashboard-cards">
+            <div class="card"><div class="card-icon"><i class="fas fa-graduation-cap"></i></div><div class="card-info"><div class="card-title">Turmas/Cursos</div><div class="card-value"><?php echo htmlspecialchars($stats['cursos_distintos']); ?></div></div></div>
+            <div class="card"><div class="card-icon"><i class="fas fa-poll"></i></div><div class="card-info"><div class="card-title">Avaliações Recebidas</div><div class="card-value"><?php echo htmlspecialchars($stats['avaliacoes_recebidas']); ?></div></div></div>
+        </section>
+
+        <hr class="dashboard-divider">
+
+        <!-- Gráfico e Tabela -->
+        <div class="dashboard-main-content">
+            <div class="chart-container">
+                <h3>Média de Notas por Turma</h3>
+                <?php if (!empty($chart_data)): ?>
+                    <canvas id="gradesByCourseChart"></canvas>
+                <?php else: ?>
+                    <div class="alert alert-info">Ainda não há dados de notas para exibir no gráfico.</div>
+                <?php endif; ?>
+            </div>
+            
+            <div class="dashboard-section" style="grid-column: 1 / -1;">
+                <div class="section-header"><h2>Relatório de Avaliações Individuais</h2></div>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="thead-dark"><tr><th>Avaliação</th><th>Aluno</th><th>Pergunta</th><th>Nota</th></tr></thead>
+                        <tbody>
+                            <?php if (empty($avaliacoes_individuais)): ?>
+                                <tr><td colspan="4" class="text-center">Nenhum feedback recebido até o momento.</td></tr>
+                            <?php else: ?>
+                                <?php foreach ($avaliacoes_individuais as $aval): ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars($aval['avaliacao_nome']); ?></td>
+                                        <td><?php echo htmlspecialchars($aval['aluno_nome']); ?></td>
+                                        <td><?php echo htmlspecialchars($aval['pergunta']); ?></td>
+                                        <td><span class="badge badge-primary"><?php echo htmlspecialchars($aval['resposta']); ?></span></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        <?php endforeach; ?>
+        </div>
     <?php endif; ?>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (document.getElementById('gradesByCourseChart')) {
+        const ctx = document.getElementById('gradesByCourseChart').getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, 'rgba(54, 162, 235, 0.8)');
+        gradient.addColorStop(1, 'rgba(54, 162, 235, 0.2)');
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: <?php echo $chart_labels_json; ?>,
+                datasets: [{
+                    label: 'Média de Nota',
+                    data: <?php echo $chart_data_json; ?>,
+                    backgroundColor: gradient,
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1,
+                    borderRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true, max: 5 } }, // Define a escala máxima da nota (ajuste se necessário)
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+});
+</script>
 <style>
-    .dashboard-section {
-        background-color: #fff;
-        padding: 30px;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        margin-bottom: 30px;
-    }
-    .dashboard-section h2 {
-        color: #343a40;
-        margin-top: 0;
-        margin-bottom: 20px;
-        border-bottom: 1px solid #eee;
-        padding-bottom: 15px;
-        font-size: 1.5rem;
-        display: flex;
-        align-items: center;
-    }
-    .dashboard-section h2 i {
-        margin-right: 12px;
-    }
-    .progress {
-        background-color: #e9ecef;
-        border-radius: .375rem;
-    }
-    .progress-bar {
-        font-weight: bold;
-        color: white;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }
-    .list-group-item {
-        border-color: #f0f0f0;
-    }
+/* Estilos reutilizados e novos */
+.dashboard-divider { margin: 2rem 0; border: 0; border-top: 1px solid #e9ecef; }
+.badge-primary { color: #fff; background-color: #007bff; }
 </style>
 
-<?php
-require_once __DIR__ . '/includes/templates/footer_dashboard.php';
-?>
+<?php require_once __DIR__ . '/includes/templates/footer_dashboard.php'; ?>

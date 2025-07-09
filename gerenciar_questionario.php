@@ -55,12 +55,20 @@ $perguntas = [];
 try {
     $sql = "SELECT id, pergunta, descricao, categoria FROM questionario " . $where_clause . " ORDER BY categoria, pergunta ASC LIMIT :limite OFFSET :offset";
     $stmt = $pdo->prepare($sql);
-    foreach ($parametros_sql as $key => &$val) $stmt->bindParam($key, $val);
+
+    // CORREÇÃO: Vincula os parâmetros de forma mais robusta e explícita.
+    if (!empty($termo_pesquisa)) {
+        $stmt->bindParam(':termo', $parametros_sql[':termo'], PDO::PARAM_STR);
+    }
     $stmt->bindParam(':limite', $limite_por_pagina, PDO::PARAM_INT);
     $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+    
     $stmt->execute();
     $perguntas = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) { /* ... */ }
+} catch (PDOException $e) { 
+    // Em caso de erro, você pode querer logar a mensagem:
+    // error_log("Erro ao buscar perguntas: " . $e->getMessage());
+}
 
 // Se for requisição AJAX, carrega apenas a tabela e encerra
 if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
@@ -106,7 +114,6 @@ $(document).ready(function() {
             },
             success: function(response) {
                 $('#tableContainer').html(response);
-                // Atualiza a URL na barra de endereço do navegador
                 window.history.pushState({path: url}, '', url);
             },
             error: function() {
@@ -115,23 +122,20 @@ $(document).ready(function() {
         });
     }
 
-    // Ação para o campo de busca
     let searchTimeout;
     $('#searchInput').on('keyup', function() {
         clearTimeout(searchTimeout);
         const searchTerm = $(this).val();
         searchTimeout = setTimeout(() => {
-            fetchQuestions(searchTerm, 1); // Sempre volta para a página 1 ao buscar
+            fetchQuestions(searchTerm, 1);
         }, 300);
     });
 
-    // CORREÇÃO: Ação para os links de paginação
     $(document).on('click', '.pagination .page-link', function(e) {
         e.preventDefault();
         const url = new URL($(this).attr('href'), window.location.origin);
-        const page = url.searchParams.get('pagina') || '1'; // Pega o número da página do link
+        const page = url.searchParams.get('pagina') || '1';
         const searchTerm = $('#searchInput').val();
-        
         fetchQuestions(searchTerm, page);
     });
 });
