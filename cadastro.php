@@ -198,15 +198,15 @@ unset($_SESSION['form_data']);
                 <div class="form-group">
                     <label for="nome_guerra">Nome de Guerra:</label>
                     <input type="text" id="nome_guerra" name="nome_guerra" value="<?php echo htmlspecialchars($form_data['nome_guerra'] ?? ''); ?>" placeholder="Seu nome de guerra (opcional)">
-                </div>
-                <div class="form-group">
-                    <label for="senha">Senha:</label>
-                    <input type="password" id="senha" name="senha" required placeholder="Escolha uma senha forte">
-                </div>
-                <div class="form-group">
-                    <label for="confirma_senha">Confirmar Senha:</label>
-                    <input type="password" id="confirma_senha" name="confirma_senha" required placeholder="Repita sua senha">
-                </div>
+                    <div class="form-group">
+                        <label for="senha">Senha:</label>
+                        <input type="password" id="senha" name="senha" required placeholder="Escolha uma senha forte">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirma_senha">Confirmar Senha:</label>
+                        <input type="password" id="confirma_senha" name="confirma_senha" required placeholder="Repita sua senha">
+                    </div>
+
 
                 <button type="submit" class="btn-cadastro">Cadastrar</button>
             </form>
