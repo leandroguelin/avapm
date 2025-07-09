@@ -117,28 +117,70 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $_SESSION['form_data'] = $form_data;
 
             $_SESSION['mensagem_feedback'] = [
-                'tipo' => 'success',
-                'texto' => 'Cadastro realizado com sucesso! Faça login para continuar.'
+ 'tipo' => 'danger',
+ 'texto' => implode('<br>', array_unique($erros)) // array_unique evita mensagens duplicadas
             ];
-            header('Location: login.php');
+ // Preserva os dados do formulário (exceto senhas) para preencher no retorno
+ $_SESSION['form_data'] = $form_data;
+
+ // Redireciona de volta para a página de cadastro correta, mantendo o tipo na URL
+ header('Location: cadastro.php' . ($tipo_cadastro === 'professor' ? '?tipo=professor' : ''));
             exit();
     } else {
+        // Validação bem-sucedida, inserir no banco de dados
+        $senha_hashed = password_hash($senha, PASSWORD_DEFAULT);
+
+        try {
+            // Prepara a query de inserção (inclui todos os campos, mesmo que sejam NULL para Alunos)
+            $sql = 'INSERT INTO usuario (nome, cpf, email, senha, nivel_acesso, rg, patente, titulacao, instituicao, fonte_pagadora, nome_guerra, telefone)
+                    VALUES (:nome, :cpf, :email, :senha, :nivel_acesso, :rg, :patente, :titulacao, :instituicao, :fonte_pagadora, :nome_guerra, :telefone)';
+
+            $stmt_insert = $pdo->prepare($sql);
+
+            $stmt_insert->bindParam(':nome', $nome);
+            $stmt_insert->bindParam(':cpf', $cpf_numerico); // Usa o CPF numérico limpo
+            $stmt_insert->bindParam(':email', $email);
+            $stmt_insert->bindParam(':senha', $senha_hashed);
+            $stmt_insert->bindParam(':nivel_acesso', $nivel_acesso);
+            $stmt_insert->bindParam(':rg', $rg); // Usa o RG original (validado, pode estar formatado)
+            $stmt_insert->bindParam(':patente', $patente);
+            $stmt_insert->bindParam(':titulacao', $titulacao);
+            $stmt_insert->bindParam(':instituicao', $instituicao);
+            $stmt_insert->bindParam(':fonte_pagadora', $fonte_pagadora);
+            $stmt_insert->bindParam(':nome_guerra', $nome_guerra);
+            $stmt_insert->bindParam(':telefone', $telefone); // Usa o Telefone original (validado, pode estar formatado)
+
+            if ($stmt_insert->execute()) {
+                $_SESSION['mensagem_feedback'] = [
+                    'tipo' => 'success',
+                    'texto' => 'Cadastro realizado com sucesso! Faça login para continuar.'
+                ];
+                header('Location: login.php'); // Redireciona para a página de login após o cadastro
+                exit();
+            } else {
+                // Erro na execução da query (pode ser duplicidade não pega pelas validações, erro de schema, etc.)
+                 error_log('Erro na execução da query de inserção: ' . print_r($stmt_insert->errorInfo(), true)); // Loga detalhes do erro da query
+                $_SESSION['mensagem_feedback'] = [
+                    'tipo' => 'danger',
+                    'texto' => 'Ocorreu um erro ao salvar seu cadastro no banco de dados. Tente novamente.'
+                ];
+                $_SESSION['form_data'] = $form_data;
+                header('Location: cadastro.php' . ($tipo_cadastro === 'professor' ? '?tipo=professor' : ''));
+                exit();
+            }
+
         } catch (PDOException $e) {
-            // Erro no banco de dados
-            error_log('Erro ao inserir usuário: ' . $e->getMessage()); // Loga o erro
+            // Erro no banco de dados (conexão, preparo da query, etc.)
+            error_log('Erro PDO ao inserir usuário: ' . $e->getMessage()); // Loga o erro PDO
             $_SESSION['mensagem_feedback'] = [
                 'tipo' => 'danger',
-                'texto' => 'Ocorreu um erro ao processar seu cadastro. Tente novamente mais tarde.'
+                'texto' => 'Ocorreu um erro interno do servidor ao processar seu cadastro. Tente novamente mais tarde.'
             ];
-            $_SESSION['form_data'] = ['nome' => $nome, 'cpf' => $cpf, 'email' => $email];
-            header('Location: cadastro.php');
+            $_SESSION['form_data'] = $form_data;
+             header('Location: cadastro.php' . ($tipo_cadastro === 'professor' ? '?tipo=professor' : ''));
             exit();
         }
     }
 
-} else {
-    // Acesso direto ao script sem POST
-    header('Location: cadastro.php');
-    exit();
 }
 ?>

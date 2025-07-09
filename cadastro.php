@@ -1,4 +1,3 @@
-php
 <?php
 // cadastro.php - Página de Cadastro de Novo Usuário (Dinâmico para Aluno/Professor)
 
