@@ -85,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare($sql);
             $stmt->execute([
                 ':nome' => $nome, ':email' => $email, ':senha' => $senha_hashed,
-                ':nivel_acesso' => strtoupper($nivel_acesso), // Padronizando para maiúsculas
+                ':nivel_acesso' => $nivel_acesso,
                 ':rg' => $rg, ':cpf' => $cpf_apenas_digitos, ':patente' => $patente,
                 ':titulacao' => $titulacao, ':instituicao' => $instituicao,
                 ':fonte_pagadora' => $fonte_pagadora, ':nome_guerra' => $nome_guerra,
