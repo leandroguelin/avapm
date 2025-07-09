@@ -1,5 +1,5 @@
 <?php
-// processa_cadastro.php - Processa o formulário de cadastro (com senha simplificada)
+// processa_cadastro.php - Processa o formulário de cadastro (com validação de senha removida para depuração)
 
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
@@ -21,12 +21,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $fonte_pagadora = $_POST['fonte_pagadora'] ?? '';
     $nome_guerra = $_POST['nome_guerra'] ?? '';
     $senha = $_POST['senha'] ?? '';
-    // A variável confirma_senha foi removida.
 
     $erros = [];
     // Mantém os dados para pré-preencher em caso de erro
     $form_data = $_POST;
-    unset($form_data['senha']); // Remove a senha do formulário de repreenchimento
+    unset($form_data['senha']);
 
     // --- 2. Validações ---
 
@@ -38,13 +37,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (empty($cpf)) $erros[] = 'O CPF é obrigatório.';
     if (empty($email)) $erros[] = 'O e-mail é obrigatório.';
     if (empty($senha)) $erros[] = 'A senha é obrigatória.';
-    // A validação para confirma_senha foi removida.
 
-    // Validação de Senha
-    // A comparação entre senha e confirma_senha foi removida.
-    if (strlen($senha) < 6) {
-        $erros[] = 'A senha deve ter no mínimo 6 caracteres.';
-    }
+    // Validação de Senha REMOVIDA PARA DEPURAÇÃO
+    // if (strlen($senha) < 6) {
+    //     $erros[] = 'A senha deve ter no mínimo 6 caracteres.';
+    // }
 
     // Validação de E-mail
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
