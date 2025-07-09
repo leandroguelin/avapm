@@ -6,7 +6,7 @@ require_once __DIR__ . '/includes/conexao.php';
 if (session_status() == PHP_SESSION_NONE) { session_start(); }
 
 // Esta página é crítica, apenas o Administrador pode acessá-la.
-if ($_SESSION['nivel_acesso'] !== 'Administrador') {
+if ($_SESSION['nivel_acesso'] !== 'ADMINISTRADOR') {
     $_SESSION['mensagem_feedback'] = ['tipo' => 'danger', 'texto' => 'Acesso negado.'];
     header('Location: dashboard.php');
     exit();
