@@ -39,9 +39,25 @@ $isProfessorMenuActive = in_array($current_page, $professor_pages);
                 </a>
             </li>
 
-            <?php if ($nivel_acesso_usuario === 'ADMINISTRADOR' || $nivel_acesso_usuario === 'GERENTE'): ?>
+           
 
-                <li class="menu-header"><span>Gerenciamento</span></li>
+               
+
+                <li class="menu-header"><span>Área do Professor</span></li>
+            <li class="sidebar-item">
+                <a href="#professorSubmenu" data-toggle="collapse" class="sidebar-link <?php echo $isProfessorMenuActive ? '' : 'collapsed'; ?>" aria-expanded="<?php echo $isProfessorMenuActive ? 'true' : 'false'; ?>">
+                    <i class="fas fa-chalkboard-teacher fa-fw"></i>
+                    <span>Professor</span>
+                    <i class="fas fa-chevron-down submenu-arrow"></i>
+                </a>
+                <ul class="collapse list-unstyled submenu <?php echo $isProfessorMenuActive ? 'show' : ''; ?>" id="professorSubmenu">
+                    <li><a href="dashboard_professor.php" class="sidebar-link <?php echo ($current_page == 'Minhas Avaliações') ? 'active' : ''; ?>">Minhas Avaliações</a></li>
+                    <li><a href="minhas_disciplinas.php" class="sidebar-link <?php echo ($current_page == 'Minhas Disciplinas') ? 'active' : ''; ?>">Minhas Disciplinas</a></li>
+                </ul>
+            </li>
+            
+            <?php if ($nivel_acesso_usuario === 'ADMINISTRADOR' || $nivel_acesso_usuario === 'GERENTE'): ?>
+            <li class="menu-header"><span>Gerenciamento</span></li>
 
                 <li class="sidebar-item">
                     <a href="#avaliacoesSubmenu" data-toggle="collapse" class="sidebar-link <?php echo $isAvaliacoesMenuActive ? '' : 'collapsed'; ?>" aria-expanded="<?php echo $isAvaliacoesMenuActive ? 'true' : 'false'; ?>">
@@ -91,19 +107,6 @@ $isProfessorMenuActive = in_array($current_page, $professor_pages);
                 </li>
             <?php endif; ?>
 
-            
-            <li class="menu-header"><span>Área do Professor</span></li>
-            <li class="sidebar-item">
-                <a href="#professorSubmenu" data-toggle="collapse" class="sidebar-link <?php echo $isProfessorMenuActive ? '' : 'collapsed'; ?>" aria-expanded="<?php echo $isProfessorMenuActive ? 'true' : 'false'; ?>">
-                    <i class="fas fa-chalkboard-teacher fa-fw"></i>
-                    <span>Professor</span>
-                    <i class="fas fa-chevron-down submenu-arrow"></i>
-                </a>
-                <ul class="collapse list-unstyled submenu <?php echo $isProfessorMenuActive ? 'show' : ''; ?>" id="professorSubmenu">
-                    <li><a href="dashboard_professor.php" class="sidebar-link <?php echo ($current_page == 'Minhas Avaliações') ? 'active' : ''; ?>">Minhas Avaliações</a></li>
-                    <li><a href="minhas_disciplinas.php" class="sidebar-link <?php echo ($current_page == 'Minhas Disciplinas') ? 'active' : ''; ?>">Minhas Disciplinas</a></li>
-                </ul>
-            </li>
 
             <?php // Menu para Alunos ?>
             <?php if ($nivel_acesso_usuario === 'ALUNO'): ?>
