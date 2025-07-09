@@ -1,27 +1,27 @@
 <?php
 
 // Definição das constantes de conexão
-define('DB_HOST', 'localhost'); // Host do banco de dados
-define('DB_USER', 'root');      // Usuário do banco de dados
-define('DB_PASS', '');      // Senha do banco de dados
-define('DB_NAME', 'avapm'); // Nome do banco de dados que criamos
+define('DB_HOST', 'postgres-homo.ssp.go.gov.br'); // Host do banco de dados
+define('DB_USER', 'usr_avapm');                   // Usuário do banco de dados
+define('DB_PASS', 'avapm-190Leandro');            // Senha do banco de dados
+define('DB_NAME', 'avapm');                       // Nome do banco de dados
+
+// define('DB_HOST', 'localhost'); // Host do banco de dados
+// define('DB_USER', 'postgres');                   // Usuário do banco de dados
+// define('DB_PASS', '123465');            // Senha do banco de dados
+// define('DB_NAME', 'ava');                       // Nome do banco de dados
+
 
 try {
-    // Cria uma nova instância PDO para a conexão
-    // mysql:host=DB_HOST;dbname=DB_NAME - Especifica o driver, host e nome do banco
-    // pgsql:host=DB_HOST;dbname=DB_NAME - Especifica o driver, host e nome do banco
-    // DB_USER, DB_PASS - Credenciais de acesso    
+    // Conexão com PostgreSQL (driver: pgsql)
     $pdo = new PDO("pgsql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
 
-    // Define o modo de erro do PDO para lançar exceções em caso de erros SQL
-    // Isso facilita a depuração, pois erros serão "capturados" pelo bloco catch
+    // Define o modo de erro para exceção
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // Opcional: Mensagem de sucesso (apenas para teste, pode ser removida depois)
     // echo "Conexão bem-sucedida!";
 
 } catch (PDOException $e) {
-    // Em caso de erro na conexão, exibe uma mensagem de erro e interrompe a execução do script
     die("Erro na conexão com o banco de dados: " . $e->getMessage());
 }
 

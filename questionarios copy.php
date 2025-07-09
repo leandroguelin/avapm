@@ -7,7 +7,7 @@ require_once __DIR__ . '/includes/conexao.php'; // A conexão já deve iniciar a
 if (session_status() == PHP_SESSION_NONE) { session_start(); }
 
 // Lógica de Permissão (exemplo, ajuste se necessário)
-$allowed_access_levels = ['Administrador', 'Gerente'];
+$allowed_access_levels = ['ADMINISTRADOR', 'GERENTE'];
 if (!isset($_SESSION['usuario_id']) || !in_array($_SESSION['nivel_acesso'], $allowed_access_levels)) {
     $_SESSION['mensagem_feedback'] = ['tipo' => 'danger', 'texto' => 'Você não tem permissão para acessar esta página.'];
     header('Location: index.php');

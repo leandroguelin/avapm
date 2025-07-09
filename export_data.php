@@ -10,7 +10,7 @@ if (session_status() == PHP_SESSION_NONE) {
 require_once __DIR__ . '/includes/conexao.php';
 
 // Níveis de acesso permitidos para esta exportação
-$allowed_access_levels = ['Administrador', 'Gerente']; 
+$allowed_access_levels = ['ADMINISTRADOR', 'GERENTE']; 
 
 // Redirecionar se o usuário NÃO estiver logado OU NÃO tiver um dos níveis de acesso permitidos
 if (!isset($_SESSION['usuario_id']) || !in_array($_SESSION['nivel_acesso'], $allowed_access_levels)) {

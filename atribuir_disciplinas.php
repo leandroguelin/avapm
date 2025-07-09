@@ -14,7 +14,7 @@ if (session_status() == PHP_SESSION_NONE) {
 require_once __DIR__ . '/includes/conexao.php';
 
 // Verificar se o usuário está logado e tem permissão (admin ou gerente)
-$allowed_access_levels = ['Administrador', 'Gerente'];
+$allowed_access_levels = ['ADMINISTRADOR', 'GERENTE'];
 if (!isset($_SESSION['usuario_id']) || !in_array($_SESSION['nivel_acesso'], $allowed_access_levels)) {
     $_SESSION['mensagem_feedback'] = [
         'tipo' => 'danger',

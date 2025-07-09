@@ -13,7 +13,7 @@ $page_title = "Editar Usuário";
 require_once __DIR__ . '/includes/conexao.php'; // Caminho para o seu arquivo de conexão
 
 // Níveis de acesso permitidos para esta página
-$allowed_access_levels = ['Administrador', 'Gerente']; 
+$allowed_access_levels = ['ADMINISTRADOR', 'GERENTE']; 
 
 // Redirecionar se o usuário NÃO estiver logado OU NÃO tiver um dos níveis de acesso permitidos
 if (!isset($_SESSION['usuario_id']) || !in_array($_SESSION['nivel_acesso'], $allowed_access_levels)) {
