@@ -1,3 +1,4 @@
+php
 <?php
 // processa_cadastro.php - Processa o formulário de cadastro (dinâmico para Aluno e Professor)
 
