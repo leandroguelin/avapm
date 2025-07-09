@@ -191,7 +191,7 @@ require_once __DIR__ . '/includes/templates/sidebar_dashboard.php';
                     <option value="">Selecione a Titulação</option>
                     <?php foreach ($titulacoes as $nome_titulacao): ?> 
                         <option value="<?php echo htmlspecialchars($nome_titulacao); ?>" 
-                            <?php // CORREÇÃO FINAL: Comparação case-insensitive e sem espaços
+                            <?php // CORREÇÃO: Comparação insensível a maiúsculas/minúsculas e sem espaços
                             echo (strtolower(trim($usuario['titulacao'] ?? '')) == strtolower(trim($nome_titulacao))) ? 'selected' : ''; ?>>
                             <?php echo htmlspecialchars($nome_titulacao); ?>
                         </option>
