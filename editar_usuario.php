@@ -164,12 +164,7 @@ require_once __DIR__ . '/includes/templates/sidebar_dashboard.php';
             <div class="form-group"><label for="email">Email:</label><input type="email" id="email" name="email" value="<?php echo htmlspecialchars($usuario['email'] ?? ''); ?>" required></div>
             <div class="form-group"><label for="rg">RG:</label><input type="text" id="rg" name="rg" value="<?php echo htmlspecialchars($usuario['rg'] ?? ''); ?>" required></div>
             <div class="form-group"><label for="cpf">CPF:</label><input type="text" id="cpf" name="cpf" value="<?php echo htmlspecialchars($usuario['cpf'] ?? ''); ?>" required></div>
-            
-            <!-- CORREÇÃO: Aplicando a máscara no valor do telefone para exibição -->
-            <div class="form-group">
-                <label for="telefone">Telefone:</label>
-                <input type="text" id="telefone" name="telefone" value="<?php echo htmlspecialchars($usuario['telefone'] ?? ''); ?>" required>
-            </div>
+            <div class="form-group"><label for="telefone">Telefone:</label><input type="text" id="telefone" name="telefone" value="<?php echo htmlspecialchars($usuario['telefone'] ?? ''); ?>" required></div>
 
             <div class="form-group">
                 <label for="nivel_acesso">Nível de Acesso:</label>
@@ -190,13 +185,14 @@ require_once __DIR__ . '/includes/templates/sidebar_dashboard.php';
                 </select>
             </div>
             
-            <!-- CORREÇÃO: Garantindo que a comparação da titulação seja limpa (sem espaços) -->
             <div class="form-group">
                 <label for="titulacao">Titulação:</label>
                 <select id="titulacao" name="titulacao" required>
                     <option value="">Selecione a Titulação</option>
                     <?php foreach ($titulacoes as $nome_titulacao): ?> 
-                        <option value="<?php echo htmlspecialchars($nome_titulacao); ?>" <?php echo (trim($usuario['titulacao'] ?? '') == trim($nome_titulacao)) ? 'selected' : ''; ?>>
+                        <option value="<?php echo htmlspecialchars($nome_titulacao); ?>" 
+                            <?php // CORREÇÃO FINAL: Comparação case-insensitive e sem espaços
+                            echo (strtolower(trim($usuario['titulacao'] ?? '')) == strtolower(trim($nome_titulacao))) ? 'selected' : ''; ?>>
                             <?php echo htmlspecialchars($nome_titulacao); ?>
                         </option>
                     <?php endforeach; ?>
