@@ -10,7 +10,7 @@ require_once __DIR__ . '/includes/seguranca.php';
 // require_once __DIR__ . '/includes/seguranca.php'; // Assumindo que seguranca.php lida com isso
 
 // IDs das disciplinas para filtro (agora pode ser um array)
-$filtro_disciplina_id = isset($_GET['disciplina_id']) ? $_GET['disciplina_id'] : null;
+$filtro_disciplina_ids_selecionados = isset($_GET['disciplina_ids']) && is_array($_GET['disciplina_ids']) ? $_GET['disciplina_ids'] : [];
 $filtro_disciplina_nome_digitado = isset($_GET['nome_disciplina']) ? $_GET['nome_disciplina'] : null; // Manter por enquanto, caso necessário para compatibilidade
 
 // --- Lógica de Exportação ---
@@ -36,17 +36,11 @@ if (isset($_GET['export'])) {
     $where_clauses_export = [];
 
     // Adicionar filtro por IDs das disciplinas (do Select2, agora permite múltiplos)
-    if (!empty($filtro_disciplina_id)) {
- if (is_array($filtro_disciplina_id)) {
+    if (!empty($filtro_disciplina_ids_selecionados)) {
  // Se for um array de IDs, usar IN
- $placeholders = implode(',', array_fill(0, count($filtro_disciplina_id), '?'));
+ $placeholders = implode(',', array_fill(0, count($filtro_disciplina_ids_selecionados), '?'));
             $where_clauses_export[] = "md.disciplina_id IN ($placeholders)";
- $parametros_sql_export = array_merge($parametros_sql_export, $filtro_disciplina_id);
- } else {
- // Se for um único ID (compatibilidade ou caso selecione apenas um)
-            $where_clauses_export[] = "md.disciplina_id = ?";
- $parametros_sql_export[] = $filtro_disciplina_id;
- }
+ $parametros_sql_export = array_merge($parametros_sql_export, $filtro_disciplina_ids_selecionados);
     }
 
 
@@ -72,20 +66,12 @@ if (isset($_GET['export'])) {
  $resultados_export = $stmt_export->fetchAll(PDO::FETCH_ASSOC);
 
         $filename = 'professores_disciplinas';
-        if (!empty($filtro_disciplina_id)) {
- // Buscar nome(s) da(s) disciplina(s) para o nome do arquivo, se filtrado
- if (is_array($filtro_disciplina_id)) {
+        if (!empty($filtro_disciplina_ids_selecionados)) {
+ // Buscar nome(s) da(s) disciplina(s) para o nome do arquivo (se filtrado)
                 $placeholders = implode(',', array_fill(0, count($filtro_disciplina_id), '?'));
                 $stmt_disciplina_nome = $pdo->prepare("SELECT nome FROM disciplina WHERE id IN ($placeholders) ORDER BY nome");
  $stmt_disciplina_nome->execute($filtro_disciplina_id);
  $nomes_disciplinas_filtro_export = $stmt_disciplina_nome->fetchAll(PDO::FETCH_COLUMN);
- if (!empty($nomes_disciplinas_filtro_export)) {
-                    $filename .= '_' . implode('_', array_map(function($name) { return str_replace(' ', '_', $name); }, $nomes_disciplinas_filtro_export));
- }
- } else {
-                $stmt_disciplina_nome = $pdo->prepare("SELECT nome FROM disciplina WHERE id = ?");
- $stmt_disciplina_nome->execute([$filtro_disciplina_id]);
- $nome_disciplina_filtro_export = $stmt_disciplina_nome->fetchColumn();
  if ($nome_disciplina_filtro_export) {
  $filename .= '_' . str_replace(' ', '_', $nome_disciplina_filtro_export);
  }
