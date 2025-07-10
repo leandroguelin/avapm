@@ -21,7 +21,6 @@ body {
 .main-content-dashboard {
     flex-grow: 1;
     padding: 2rem;
- margin-left: 250px; /* Adjust this value to match your sidebar width */
     background-color: #ffffff; /* Fundo branco para a área de conteúdo */
 }
 
@@ -138,40 +137,6 @@ body {
     color: #007bff;
 }
 
-/* --- MENU TOGGLE BUTTON (NEW) --- */
-.menu-toggle {
-    display: none; /* Hidden by default on larger screens */
-    position: fixed;
-    top: 1rem;
-    left: 1rem;
-    z-index: 1000; /* Ensure it's above other content */
-    background-color: #007bff;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    padding: 0.5rem;
-    cursor: pointer;
-    font-size: 1.5rem;
-}
-
-.menu-toggle:hover {
-    background-color: #0056b3;
-}
-
-/* --- SIDEBAR RESPONSIVE (NEW) --- */
-@media (max-width: 768px) {
-    .sidebar-dashboard {
-        position: fixed;
-        top: 0;
-        left: -250px; /* Start off-screen */
-        height: 100vh;
-        transition: left 0.3s ease-in-out;
-        z-index: 999; /* Below the menu toggle */
-        /* Add your sidebar's background color and width here */
-    }
-
-}
-
 /* --- Responsividade --- */
 @media (max-width: 992px) {
     .dashboard-main-content {
@@ -196,9 +161,43 @@ body {
     }
 
     /* Hide sidebar and adjust main content margin */
+    /* .sidebar-dashboard styles are now handled by the specific responsive block below */
+
+}
+
+/* --- MENU TOGGLE BUTTON (NEW) --- */
+.menu-toggle {
+    display: none; /* Hidden by default on larger screens */
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    z-index: 1000; /* Ensure it's above other content */
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 0.5rem;
+    cursor: pointer;
+    font-size: 1.5rem;
+}
+
+.menu-toggle:hover {
+    background-color: #0056b3;
+}
+
+@media (max-width: 768px) {
+    .menu-toggle {
+        display: block; /* Show on small screens */
+    }
     .sidebar-dashboard {
-        /* These properties are now handled by the fixed positioning above */
-        display: block; /* Ensure it's block for fixed positioning */
+        position: fixed;
+        top: 0;
+        left: -250px; /* Start off-screen */
+        height: 100vh;
+        transition: left 0.3s ease-in-out;
+        z-index: 999; /* Below the menu toggle */
+        width: 250px; /* Explicitly set width for the off-screen state */
+ display: block; /* Ensure it's block for fixed positioning */
     }
 
     .sidebar-dashboard.active {
@@ -206,7 +205,13 @@ body {
     }
 
     .main-content-dashboard {
+        padding: 1.5rem;
         margin-left: 0;
+    }
+
+    .dashboard-header {
+ flex-direction: column;
+ align-items: flex-start;
     }
 
 }
