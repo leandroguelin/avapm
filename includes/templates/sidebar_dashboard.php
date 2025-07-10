@@ -82,6 +82,7 @@ $isProfessorMenuActive = in_array($current_page, $professor_pages);
                         <li><a href="gerenciar_usuarios.php" class="sidebar-link <?php echo ($current_page == 'Usuários') ? 'active' : ''; ?>">Usuários</a></li>
                         <li><a href="gerenciar_cursos.php" class="sidebar-link <?php echo ($current_page == 'Cursos') ? 'active' : ''; ?>">Cursos</a></li>
                         <li><a href="gerenciar_disciplinas.php" class="sidebar-link <?php echo ($current_page == 'Disciplinas') ? 'active' : ''; ?>">Disciplinas</a></li>
+                        <li><a href="disciplina_professores.php" class="sidebar-link <?php echo ($current_page == 'Professores por Disciplina') ? 'active' : ''; ?>">Professores por Disciplina</a></li>
                         <?php if ($nivel_acesso_usuario === 'ADMINISTRADOR'): ?>
                             <li class="sidebar-item">
                                 <a href="credenciais.php" class="sidebar-link <?php echo ($current_page == 'Gerenciar Credenciais') ? 'active' : ''; ?>">
