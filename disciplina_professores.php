@@ -280,8 +280,8 @@ try {
 </head>
 <body class="dashboard-page">
 
+    <?php include '/avapm/includes/templates/header_dashboard.php'; ?>
     <?php include 'includes/templates/sidebar_dashboard.php'; ?>
-
     <div class="main-content-dashboard">
         <div class="dashboard-header">
             <h1>Professores por Disciplina</h1>
