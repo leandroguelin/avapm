@@ -378,8 +378,10 @@ $page_title = "Professores por Disciplina";
     <script>
         $(document).ready(function() {
             $('#filtro_disciplina_select2').select2({
-                 placeholder: "Selecione ou digite a disciplina", // Texto de placeholder
-                 allowClear: true // Permite limpar a seleção
+                placeholder: "Selecione ou digite a disciplina", // Texto de placeholder
+                allowClear: true, // Permite limpar a seleção
+                minimumInputLength: 0, // Mostra todas as opções imediatamente
+                minimumResultsForSearch: 1 // Garante que a caixa de busca seja sempre visível
             });
         });
     </script>
