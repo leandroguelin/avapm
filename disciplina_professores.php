@@ -1,14 +1,16 @@
 <?php
-require_once 'includes/conexao.php';
-require_once 'includes/seguranca.php';
+// htdocs/avapm/disciplina_professores.php
 
-// Incluir a biblioteca FPDF para exportação em PDF
-// Verificar se o usuário tem permissão (exemplo: apenas admin ou professor)
-// require_once 'includes/seguranca.php'; // Assumindo que seguranca.php lida com isso
+if (session_status() == PHP_SESSION_NONE) { session_start(); }
+require_once __DIR__ . '/includes/conexao.php';
+require_once __DIR__ . '/includes/seguranca.php';
+
+// Verificar se o usuário tem permissão para acessar esta página
+// require_once __DIR__ . '/includes/seguranca.php'; // Assumindo que seguranca.php lida com isso
 
 // ID da disciplina para filtro
 $filtro_disciplina_id = isset($_GET['disciplina_id']) ? $_GET['disciplina_id'] : null;
-$filtro_disciplina_nome_digitado = isset($_GET['nome_disciplina']) ? $_GET['nome_disciplina'] : null; // Captura o valor do campo de texto antigo, caso ainda esteja na URL
+$filtro_disciplina_nome_digitado = isset($_GET['nome_disciplina']) ? $_GET['nome_disciplina'] : null; // Manter por enquanto, caso necessário para compatibilidade
 
 // --- Lógica de Exportação ---
 if (isset($_GET['export'])) {
@@ -39,7 +41,6 @@ if (isset($_GET['export'])) {
     }
 
     // Adicionar filtro por nome da disciplina (do campo de texto anterior, se ainda relevante)
-    // Se você migrou totalmente para Select2, esta parte pode ser removida após confirmar que o filtro por ID funciona
     /*
     if ($filtro_disciplina_nome_digitado && $filtro_disciplina_nome_digitado !== '') {
         $where_clauses_export[] = "d.nome ILIKE ?"; // Use ILIKE para case-insensitive no PostgreSQL
@@ -108,7 +109,7 @@ if (isset($_GET['export'])) {
                 break;
 
             case 'pdf':
-                require('includes/fpdf/fpdf.php'); // Verifique o caminho correto
+                require(__DIR__ . '/includes/fpdf/fpdf.php'); // Corrigido o caminho
 
                 class PDF extends FPDF
                 {
@@ -262,6 +263,10 @@ try {
     $resultados = []; // Retorna um array vazio em caso de erro
 }
 
+// --- Variáveis para o template do header e sidebar ---
+$page_title = "Professores por Disciplina";
+// Se houver outras variáveis que header/sidebar esperam, defina-as aqui
+
 ?>
 
 <!DOCTYPE html>
@@ -269,7 +274,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Professores por Disciplina - AVAPM</title>
+    <title><?php echo $page_title; ?> - AVAPM</title>
     <link rel="stylesheet" href="css/style.css">
     <!-- Inclua aqui os links para as bibliotecas de ícones (Font Awesome, etc.) se estiver usando -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -280,13 +285,23 @@ try {
 </head>
 <body class="dashboard-page">
 
-    <?php include '/avapm/includes/templates/header_dashboard.php'; ?>
-    <?php include 'includes/templates/sidebar_dashboard.php'; ?>
+    <?php
+        // Inclusão correta dos templates usando __DIR__
+        require_once __DIR__ . '/includes/templates/sidebar_dashboard.php';
+        require_once __DIR__ . '/includes/templates/header_dashboard.php';
+    ?>
+
     <div class="main-content-dashboard">
-        <div class="dashboard-header">
-            <h1>Professores por Disciplina</h1>
-            <?php include 'includes/templates/header_dashboard.php'; ?>
-        </div>
+        <?php
+            // O conteúdo do header_dashboard.php já inclui o título principal
+            // Portanto, podemos remover o h1 duplicado aqui se o header já o tiver
+            // <div class="dashboard-header">
+            //     <h1>Professores por Disciplina</h1>
+            //     <?php include 'includes/templates/header_dashboard.php'; ?>
+            // </div>
+            // Se o header_dashboard.php NÃO incluir o título, mantenha a div acima e remova a inclusão do header aqui.
+            // Com base na estrutura comum, o header_dashboard.php deve ter a estrutura de cabeçalho.
+        ?>
 
         <div class="dashboard-section">
             <div class="section-header">
@@ -357,6 +372,8 @@ try {
         </div>
     </div>
 
+    <?php require_once __DIR__ . '/includes/templates/footer_dashboard.php'; ?>
+
     <!-- Incluir jQuery (geralmente necessário para Select2) - Verifique o caminho correto -->
     <script src="caminho/para/jquery/jquery.min.js"></script>
     <!-- Incluir JS do Select2 - Verifique o caminho correto -->
@@ -371,6 +388,10 @@ try {
                  placeholder: "Selecione ou digite a disciplina", // Texto de placeholder
                  allowClear: true // Permite limpar a seleção
             });
+
+             // Se houver um script de alternância da sidebar em script.js, ele será executado aqui.
+             // Se o problema de travamento persistir, talvez seja necessário rever o script.js
+             // ou a interação entre ele e os scripts do dashboard/bootstrap.
         });
     </script>
 
