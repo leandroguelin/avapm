@@ -52,7 +52,7 @@ $texto_index = $configs['texto_index'] ?? 'Bem-vindo ao sistema de avaliação. 
         <header class="header-public">
             <a href="index.php" class="logo-link">
                 <img src="<?php echo htmlspecialchars($logo_path); ?>" alt="Logo do Sistema">
-                <span>AVAPM</span>
+                <span>AVA</span>
             </a>
             <nav>
                 <a href="login.php" class="nav-link">Acesso Restrito</a>
