@@ -7,7 +7,7 @@ require_once 'includes/seguranca.php';
 // require_once 'includes/seguranca.php'; // Assumindo que seguranca.php lida com isso
 
 // ID da disciplina para filtro
-$filtro_disciplina_id = isset($_GET['disciplina_id']) ? $_GET['disciplina_id'] : null;
+$filtro_disciplina_nome = isset($_GET['disciplina_nome']) ? $_GET['disciplina_nome'] : '';
 
 // --- Lógica de Exportação ---
 if (isset($_GET['export'])) {
@@ -30,15 +30,15 @@ if (isset($_GET['export'])) {
 
     $parametros_sql_export = [];
 
-    if ($filtro_disciplina_id && $filtro_disciplina_id !== '') {
-        $sql_export .= " WHERE md.disciplina_id = ?";
-        $parametros_sql_export[] = $filtro_disciplina_id;
+    if ($filtro_disciplina_nome !== '') {
+        $sql_export .= " WHERE d.nome ILIKE ?"; // Usando ILIKE para busca case-insensitive (PostgreSQL)
+        $parametros_sql_export[] = '%' . $filtro_disciplina_nome . '%';
     }
 
     $sql_export .= " ORDER BY u.nome, d.nome";
 
     try {
-        $stmt_export = $pdo->prepare($sql_export);
+        $stmt_export = $pdo->prepare($sql_export); // Use prepare para consultas com parâmetros
         $stmt_export->execute($parametros_sql_export);
         $resultados_export = $stmt_export->fetchAll(PDO::FETCH_ASSOC);
 
@@ -60,7 +60,7 @@ if (isset($_GET['export'])) {
                 header('Content-Type: text/html');
                 header('Content-Disposition: attachment; filename="' . $filename . '.html"');
                 echo '<html><head><title>Relatório de Professores por Disciplina</title><style>table, th, td { border: 1px solid black; border-collapse: collapse; padding: 8px; }</style></head><body>';
-                echo '<h2>Relatório de Professores por Disciplina</h2>';
+                echo '<h1>Relatório de Professores por Disciplina</h1>'; // Alterado para h1 para consistência
                 if ($filtro_disciplina_id && $filtro_disciplina_id !== '') {
                      echo '<p>Filtrado por Disciplina: ' . htmlspecialchars($nome_disciplina_filtro) . '</p>';
                 }
@@ -183,20 +183,8 @@ if (isset($_GET['export'])) {
 }
 // --- Fim Lógica de Exportação ---
 
-
-// Consulta para buscar disciplinas para o filtro
-$sql_disciplinas = "SELECT id, nome FROM disciplina ORDER BY nome";
-try {
-    $stmt_disciplinas = $pdo->query($sql_disciplinas);
-    $disciplinas = $stmt_disciplinas->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    error_log("Erro ao buscar disciplinas para filtro: " . $e->getMessage());
-    $disciplinas = []; // Retorna um array vazio em caso de erro
-}
-
-
 // Consulta principal para buscar professores e disciplinas
-$sql = "SELECT
+$sql = "SELECT DISTINCT -- Usar DISTINCT caso um professor ensine a mesma disciplina em várias turmas (baseado no schema)
             u.patente,
             u.nome,
             u.titulacao,
@@ -213,9 +201,9 @@ $sql = "SELECT
 $parametros_sql = [];
 
 // Adicionar filtro se um disciplina_id for fornecido
-if ($filtro_disciplina_id && $filtro_disciplina_id !== '') {
-    $sql .= " WHERE md.disciplina_id = ?";
-    $parametros_sql[] = $filtro_disciplina_id;
+if ($filtro_disciplina_nome !== '') {
+    $sql .= " WHERE d.nome ILIKE ?"; // Usando ILIKE para busca case-insensitive (PostgreSQL)
+    $parametros_sql[] = '%' . $filtro_disciplina_nome . '%';
 }
 
 $sql .= " ORDER BY u.nome, d.nome";
@@ -258,17 +246,10 @@ try {
 
             <!-- Formulário de Filtro -->
             <form method="GET" action="disciplina_professores.php" class="form-dashboard">
+                 <h2>Filtrar Professores</h2>
                 <div class="form-group">
-                    <label for="disciplina_id">Filtrar por Disciplina:</label>
-                    <select name="disciplina_id" id="disciplina_id" class="form-control">
-                        <option value="">Todas as Disciplinas</option>
-                        <?php foreach ($disciplinas as $disciplina): ?>
-                            <option value="<?php echo htmlspecialchars($disciplina['id']); ?>"
-                                <?php echo ($filtro_disciplina_id == $disciplina['id']) ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($disciplina['nome']); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <label for="disciplina_nome">Nome da Disciplina:</label>
+                    <input type="text" name="disciplina_nome" id="disciplina_nome" class="form-control" value="<?php echo htmlspecialchars($filtro_disciplina_nome); ?>" placeholder="Digite o nome da disciplina">
                 </div>
                 <button type="submit" class="btn-primary-dashboard">Aplicar Filtro</button>
                  <a href="disciplina_professores.php" class="btn-secondary-dashboard">Limpar Filtro</a>
