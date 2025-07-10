@@ -1,142 +1,272 @@
+php
 <?php
-// avapm/dashboard_professor.php - VERSÃO COMPLETAMENTE REFEITA
+// Define o título da página
+$page_title = "Dashboard Professor";
 
-// --- Inicialização e Segurança ---
-if (session_status() == PHP_SESSION_NONE) { session_start(); }
-require_once __DIR__ . '/includes/conexao.php';
-require_once __DIR__ . '/includes/seguranca.php';
+// Inclui o cabeçalho do dashboard (que já faz a verificação de login e inicia a sessão)
+require_once __DIR__ . '/includes/templates/header_dashboard.php';
 
-// Garante que apenas professores e administradores possam ver esta página
-$allowed_access_levels = ['professor', 'administrador', 'gerente'];
-verificar_permissao(basename(__FILE__), $pdo, $allowed_access_levels);
+// Inclui a barra lateral (sidebar) do dashboard
+require_once __DIR__ . '/includes/templates/sidebar_dashboard.php';
 
-$page_title = "Painel do Professor";
-$current_page = "PainelProfessor"; // Para a sidebar
-$professor_id = $_SESSION['usuario_id'];
+// Define a página atual para a sidebar destacar o link ativo
+$current_page = "Dashboard"; // Para manter o "Dashboard" ativo na sidebar
 
-// --- Busca de Dados para o Dashboard ---
-$stats = [
-    'cursos_distintos' => 0,
-    'avaliacoes_recebidas' => 0,
-];
-$notas_por_curso = [];
-$avaliacoes_individuais = [];
-$mensagem_erro = null;
+// Inclui o arquivo de configuração do banco de dados
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../src/models/Usuario.php';
+require_once __DIR__ . '/../src/models/MinhaDisciplina.php';
+require_once __DIR__ . '/../src/models/Nota.php'; // Inclui o modelo Nota
+require_once __DIR__ . '/../src/models/QuestionarioRespondido.php'; // Inclui o modelo QuestionarioRespondido
+require_once __DIR__ . '/../src/models/Resposta.php'; // Inclui o modelo Resposta
+require_once __DIR__ . '/../src/models/Disciplina.php'; // Inclui o modelo Disciplina
 
+// Verifica se o usuário está logado e se é um professor
+if (!isset($_SESSION['usuario_id']) || $_SESSION['tipo_usuario'] !== 'professor') {
+    header('Location: ../login.php');
+    exit();
+}
+
+$usuario_id = $_SESSION['usuario_id'];
+
+// Inicializa o objeto de conexão com o banco de dados
+$pdo = getDatabaseConnection();
+
+// Instancia os modelos
+$minhaDisciplinaModel = new MinhaDisciplina($pdo);
+$notaModel = new Nota($pdo);
+$questionarioRespondidoModel = new QuestionarioRespondido($pdo);
+$respostaModel = new Resposta($pdo);
+$disciplinaModel = new Disciplina($pdo);
+
+
+// --- KPIs para o Professor ---
+
+// 1. Total de Disciplinas Ministradas
+$totalDisciplinas = $minhaDisciplinaModel->countDisciplinasByProfessor($usuario_id);
+
+// 2. Total de Cursos Diferentes Associados às Suas Disciplinas
 try {
-    // 1. DADOS PARA OS CARDS
-    // Contar cursos distintos em que o professor tem disciplinas
     $stmt_cursos = $pdo->prepare("
-        SELECT COUNT(DISTINCT d.curso_id) 
+        SELECT COUNT(DISTINCT gc.curso_id)
         FROM minhas_disciplinas md
         JOIN disciplina d ON md.disciplina_id = d.id
+        JOIN grade_curso gc ON d.id = gc.disciplina_id -- Adiciona o JOIN com grade_curso para obter curso_id
         WHERE md.usuario_id = :professor_id
     ");
-    $stmt_cursos->execute([':professor_id' => $professor_id]);
-    $stats['cursos_distintos'] = $stmt_cursos->fetchColumn();
-
-    // Contar total de avaliações individuais recebidas
-    $stmt_avaliacoes = $pdo->prepare("
-        SELECT COUNT(ra.id) 
-        FROM respostas_avaliacao ra
-        JOIN avaliacao a ON ra.avaliacao_id = a.id
-        WHERE ra.professor_id = :professor_id
-    ");
-    $stmt_avaliacoes->execute([':professor_id' => $professor_id]);
-    $stats['avaliacoes_recebidas'] = $stmt_avaliacoes->fetchColumn();
-
-    // 2. DADOS PARA O GRÁFICO (Média de notas por curso)
-    $stmt_grafico = $pdo->prepare("
-        SELECT c.nome AS curso_nome, AVG(ra.resposta) AS media_nota
-        FROM respostas_avaliacao ra
-        JOIN avaliacao a ON ra.avaliacao_id = a.id
-        JOIN cursos c ON a.curso_id = c.id
-        JOIN questionario q ON ra.pergunta_id = q.id
-        WHERE ra.professor_id = :professor_id AND q.categoria = 'Professor'
-        GROUP BY c.nome
-        ORDER BY c.nome
-    ");
-    $stmt_grafico->execute([':professor_id' => $professor_id]);
-    $notas_por_curso = $stmt_grafico->fetchAll(PDO::FETCH_ASSOC);
-
-    // 3. DADOS PARA A TABELA (Relatório de avaliações individuais)
-    $stmt_relatorio = $pdo->prepare("
-        SELECT a.nome AS avaliacao_nome, u.nome AS aluno_nome, q.pergunta, ra.resposta
-        FROM respostas_avaliacao ra
-        JOIN avaliacao a ON ra.avaliacao_id = a.id
-        JOIN usuario u ON ra.aluno_id = u.id
-        JOIN questionario q ON ra.pergunta_id = q.id
-        WHERE ra.professor_id = :professor_id AND q.categoria = 'Professor'
-        ORDER BY a.nome, q.pergunta
-    ");
-    $stmt_relatorio->execute([':professor_id' => $professor_id]);
-    $avaliacoes_individuais = $stmt_relatorio->fetchAll(PDO::FETCH_ASSOC);
-
+    $stmt_cursos->execute([':professor_id' => $usuario_id]);
+    $totalCursos = $stmt_cursos->fetchColumn();
 } catch (PDOException $e) {
-    $mensagem_erro = "Erro de Banco de Dados: " . $e->getMessage();
-    error_log("Erro no Dashboard do Professor: " . $e->getMessage());
+    error_log("Erro ao contar cursos por professor: " . $e->getMessage());
+    $totalCursos = 0; // Define 0 em caso de erro
+    $mensagem_erro = "Ocorreu um erro ao carregar o total de cursos.";
 }
 
-// Prepara dados para o Chart.js
+
+// 3. Total de Alunos em Suas Disciplinas (contagem única)
+try {
+    $stmt_alunos = $pdo->prepare("
+        SELECT COUNT(DISTINCT ma.usuario_id)
+        FROM minhas_disciplinas md
+        JOIN disciplina d ON md.disciplina_id = d.id
+        JOIN matricula ma ON d.id = ma.disciplina_id -- Junta com matricula para obter alunos
+        WHERE md.usuario_id = :professor_id
+    ");
+    $stmt_alunos->execute([':professor_id' => $usuario_id]);
+    $totalAlunosUnicos = $stmt_alunos->fetchColumn();
+} catch (PDOException $e) {
+    error_log("Erro ao contar alunos únicos por professor: " . $e->getMessage());
+    $totalAlunosUnicos = 0; // Define 0 em caso de erro
+    $mensagem_erro = "Ocorreu um erro ao carregar o total de alunos.";
+}
+
+
+// 4. Média Geral das Notas dos Alunos em Suas Disciplinas
+try {
+    $stmt_media_notas = $pdo->prepare("
+        SELECT AVG(n.nota)
+        FROM notas n
+        JOIN matricula m ON n.matricula_id = m.id
+        JOIN disciplina d ON m.disciplina_id = d.id
+        JOIN minhas_disciplinas md ON d.id = md.disciplina_id
+        WHERE md.usuario_id = :professor_id AND n.nota IS NOT NULL
+    ");
+    $stmt_media_notas->execute([':professor_id' => $usuario_id]);
+    $mediaGeralNotas = $stmt_media_notas->fetchColumn();
+    $mediaGeralNotas = $mediaGeralNotas !== false ? number_format($mediaGeralNotas, 2) : 'N/A'; // Formata para 2 casas decimais ou N/A
+} catch (PDOException $e) {
+    error_log("Erro ao calcular média geral das notas: " . $e->getMessage());
+    $mediaGeralNotas = 'N/A'; // Define N/A em caso de erro
+    $mensagem_erro = "Ocorreu um erro ao calcular a média geral das notas.";
+}
+
+
+// 5. Total de Questionários Respondidos Relacionados às Suas Disciplinas
+try {
+    $stmt_questionarios_respondidos = $pdo->prepare("
+        SELECT COUNT(qr.id)
+        FROM questionarios_respondidos qr
+        JOIN matricula m ON qr.matricula_id = m.id
+        JOIN disciplina d ON m.disciplina_id = d.id
+        JOIN minhas_disciplinas md ON d.id = md.disciplina_id
+        WHERE md.usuario_id = :professor_id
+    ");
+    $stmt_questionarios_respondidos->execute([':professor_id' => $usuario_id]);
+    $totalQuestionariosRespondidos = $stmt_questionarios_respondidos->fetchColumn();
+} catch (PDOException $e) {
+    error_log("Erro ao contar questionários respondidos por professor: " . $e->getMessage());
+    $totalQuestionariosRespondidos = 0; // Define 0 em caso de erro
+    $mensagem_erro = "Ocorreu um erro ao carregar o total de questionários respondidos.";
+}
+
+
+// --- Gráfico de Médias de Notas por Disciplina ---
 $chart_labels = [];
 $chart_data = [];
-foreach ($notas_por_curso as $nota) {
-    $chart_labels[] = $nota['curso_nome'];
-    $chart_data[] = round($nota['media_nota'], 2); // Arredonda para 2 casas decimais
-}
-$chart_labels_json = json_encode($chart_labels);
-$chart_data_json = json_encode($chart_data);
 
-// --- Inclusão dos Templates de Layout ---
-require_once __DIR__ . '/includes/templates/header_dashboard.php';
-require_once __DIR__ . '/includes/templates/sidebar_dashboard.php';
+try {
+    $stmt_medias_por_disciplina = $pdo->prepare("
+        SELECT d.nome AS nome_disciplina, AVG(n.nota) AS media_nota
+        FROM notas n
+        JOIN matricula m ON n.matricula_id = m.id
+        JOIN disciplina d ON m.disciplina_id = d.id
+        JOIN minhas_disciplinas md ON d.id = md.disciplina_id
+        WHERE md.usuario_id = :professor_id AND n.nota IS NOT NULL
+        GROUP BY d.id, d.nome
+        ORDER BY d.nome;
+    ");
+    $stmt_medias_por_disciplina->execute([':professor_id' => $usuario_id]);
+    $mediasPorDisciplina = $stmt_medias_por_disciplina->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($mediasPorDisciplina as $item) {
+        $chart_labels[] = $item['nome_disciplina'];
+        $chart_data[] = number_format($item['media_nota'], 2);
+    }
+
+    // Converte para JSON para usar no JavaScript do gráfico
+    $chart_labels_json = json_encode($chart_labels);
+    $chart_data_json = json_encode($chart_data);
+
+} catch (PDOException $e) {
+    error_log("Erro ao buscar médias por disciplina para o gráfico: " . $e->getMessage());
+    $mensagem_erro = "Ocorreu um erro ao carregar os dados para o gráfico de notas.";
+    $chart_labels_json = '[]';
+    $chart_data_json = '[]';
+}
+
+
+// --- Tabela das Suas Disciplinas ---
+$disciplinasProfessor = $minhaDisciplinaModel->getDisciplinasComProfessor($usuario_id);
+
+
 ?>
 
-<div class="main-content-dashboard">
-    <header class="dashboard-header">
-        <h1><?php echo htmlspecialchars($page_title); ?></h1>
-    </header>
+<div class="container-fluid mt-4">
+    <h1 class="mb-4">Dashboard do Professor</h1>
 
-    <?php if ($mensagem_erro): ?>
-        <div class="alert alert-danger"><?php echo htmlspecialchars($mensagem_erro); ?></div>
-    <?php else: ?>
-        <!-- Seção de Cartões de Estatísticas -->
-        <section class="dashboard-cards">
-            <div class="card"><div class="card-icon"><i class="fas fa-graduation-cap"></i></div><div class="card-info"><div class="card-title">Turmas/Cursos</div><div class="card-value"><?php echo htmlspecialchars($stats['cursos_distintos']); ?></div></div></div>
-            <div class="card"><div class="card-icon"><i class="fas fa-poll"></i></div><div class="card-info"><div class="card-title">Avaliações Recebidas</div><div class="card-value"><?php echo htmlspecialchars($stats['avaliacoes_recebidas']); ?></div></div></div>
-        </section>
+    <?php if (!empty($mensagem_sucesso)): ?>
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <?php echo $mensagem_sucesso; ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <?php endif; ?>
 
-        <hr class="dashboard-divider">
+    <?php if (!empty($mensagem_erro)): ?>
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <?php echo $mensagem_erro; ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <?php endif; ?>
 
-        <!-- Gráfico e Tabela -->
-        <div class="dashboard-main-content">
-            <div class="chart-container">
-                <h3>Média de Notas por Turma</h3>
-                <?php if (!empty($chart_data)): ?>
-                    <canvas id="gradesByCourseChart"></canvas>
-                <?php else: ?>
-                    <div class="alert alert-info">Ainda não há dados de notas para exibir no gráfico.</div>
-                <?php endif; ?>
+
+    <!-- Seção de KPIs -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Disciplinas Ministradas</h5>
+                    <p class="card-text display-4"><?php echo $totalDisciplinas; ?></p>
+                </div>
             </div>
-            
-            <div class="dashboard-section" style="grid-column: 1 / -1;">
-                <div class="section-header"><h2>Relatório de Avaliações Individuais</h2></div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Cursos Associados</h5>
+                    <p class="card-text display-4"><?php echo $totalCursos; ?></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-info mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Alunos Únicos</h5>
+                    <p class="card-text display-4"><?php echo $totalAlunosUnicos; ?></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-warning mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Média Geral Notas</h5>
+                    <p class="card-text display-4"><?php echo $mediaGeralNotas; ?></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+             <div class="card text-white bg-danger mb-3">
+                 <div class="card-body">
+                     <h5 class="card-title">Questionários Respondidos</h5>
+                     <p class="card-text display-4"><?php echo $totalQuestionariosRespondidos; ?></p>
+                 </div>
+             </div>
+         </div>
+    </div>
+
+    <hr class="dashboard-divider">
+
+    <!-- Seção do Gráfico -->
+    <?php if (!empty($chart_labels) && !empty($chart_data)): ?>
+        <div class="card mb-4">
+            <div class="card-header">
+                Média de Notas por Disciplina
+            </div>
+            <div class="card-body">
+                <div class="chart-container" style="position: relative; height:40vh; width:80vw">
+                    <canvas id="gradesByCourseChart"></canvas>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?>
+
+    <hr class="dashboard-divider">
+
+    <!-- Seção da Tabela de Disciplinas -->
+    <?php if (!empty($disciplinasProfessor)): ?>
+        <div class="card mb-4">
+            <div class="card-header">
+                Suas Disciplinas
+            </div>
+            <div class="card-body">
                 <div class="table-responsive">
                     <table class="table table-striped table-hover">
-                        <thead class="thead-dark"><tr><th>Avaliação</th><th>Aluno</th><th>Pergunta</th><th>Nota</th></tr></thead>
+                        <thead>
+                            <tr>
+                                <th>Nome da Disciplina</th>
+                                <th>Código</th>
+                                <th>Curso</th>
+                                <!-- Adicione mais colunas se necessário -->
+                            </tr>
+                        </thead>
                         <tbody>
-                            <?php if (empty($avaliacoes_individuais)): ?>
-                                <tr><td colspan="4" class="text-center">Nenhum feedback recebido até o momento.</td></tr>
-                            <?php else: ?>
-                                <?php foreach ($avaliacoes_individuais as $aval): ?>
-                                    <tr>
-                                        <td><?php echo htmlspecialchars($aval['avaliacao_nome']); ?></td>
-                                        <td><?php echo htmlspecialchars($aval['aluno_nome']); ?></td>
-                                        <td><?php echo htmlspecialchars($aval['pergunta']); ?></td>
-                                        <td><span class="badge badge-primary"><?php echo htmlspecialchars($aval['resposta']); ?></span></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
+                            <?php foreach ($disciplinasProfessor as $disciplina): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($disciplina['nome_disciplina']); ?></td>
+                                    <td><?php echo htmlspecialchars($disciplina['codigo']); ?></td>
+                                    <td><?php echo htmlspecialchars($disciplina['nome_curso']); ?></td>
+                                    <!-- Renderize mais dados se houver -->
+                                </tr>
+                            <?php endforeach; ?>
                         </tbody>
                     </table>
                 </div>
@@ -150,28 +280,62 @@ require_once __DIR__ . '/includes/templates/sidebar_dashboard.php';
 document.addEventListener('DOMContentLoaded', function() {
     if (document.getElementById('gradesByCourseChart')) {
         const ctx = document.getElementById('gradesByCourseChart').getContext('2d');
+        // Criando um gradiente dinamicamente (opcional, pode usar uma cor sólida)
         const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-        gradient.addColorStop(0, 'rgba(54, 162, 235, 0.8)');
-        gradient.addColorStop(1, 'rgba(54, 162, 235, 0.2)');
+        gradient.addColorStop(0, 'rgba(54, 162, 235, 0.8)'); // Azul
+        gradient.addColorStop(1, 'rgba(54, 162, 235, 0.2)'); // Azul mais claro
 
         new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: <?php echo $chart_labels_json; ?>,
+                labels: <?php echo $chart_labels_json; ?>, // Rótulos das disciplinas (nomes)
                 datasets: [{
                     label: 'Média de Nota',
-                    data: <?php echo $chart_data_json; ?>,
-                    backgroundColor: gradient,
-                    borderColor: 'rgba(54, 162, 235, 1)',
+                    data: <?php echo $chart_data_json; ?>, // Dados das médias de notas
+                    backgroundColor: gradient, // Usa o gradiente como cor de fundo
+                    borderColor: 'rgba(54, 162, 235, 1)', // Borda sólida azul
                     borderWidth: 1,
-                    borderRadius: 5
+                    borderRadius: 5 // Bordas arredondadas para as barras
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false,
-                scales: { y: { beginAtZero: true, max: 5 } }, // Define a escala máxima da nota (ajuste se necessário)
-                plugins: { legend: { display: false } }
+                maintainAspectRatio: false, // Permite que o chart-container controle o tamanho
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 5, // Define a escala máxima da nota (ajuste se necessário, ex: 10)
+                        title: {
+                            display: true,
+                            text: 'Média da Nota'
+                        }
+                    },
+                    x: {
+                        title: {
+                             display: true,
+                             text: 'Disciplina'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false // Oculta a legenda, pois só temos um dataset
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(context.parsed.y);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
             }
         });
     }
@@ -181,6 +345,25 @@ document.addEventListener('DOMContentLoaded', function() {
 /* Estilos reutilizados e novos */
 .dashboard-divider { margin: 2rem 0; border: 0; border-top: 1px solid #e9ecef; }
 .badge-primary { color: #fff; background-color: #007bff; }
+
+/* Adicionando cores para os outros badges de KPI se necessário */
+.bg-success { background-color: #28a745 !important; }
+.bg-info { background-color: #17a2b8 !important; }
+.bg-warning { background-color: #ffc107 !important; color: #212529 !important; } /* Cor do texto para contraste */
+.bg-danger { background-color: #dc3545 !important; }
+
+/* Estilo opcional para o chart-container para melhor controle do layout */
+.chart-container {
+    position: relative;
+    height: 40vh; /* Altura responsiva baseada na viewport */
+    width: 100%; /* Ocupa toda a largura do contêiner pai */
+    max-width: 800px; /* Limita a largura máxima do gráfico */
+    margin: auto; /* Centraliza o gráfico se a largura for menor que o max-width */
+}
 </style>
 
-<?php require_once __DIR__ . '/includes/templates/footer_dashboard.php'; ?>
+
+<?php
+// Inclui o rodapé do dashboard
+require_once __DIR__ . '/includes/templates/footer_dashboard.php';
+?>
