@@ -1,4 +1,3 @@
-php
 <?php
 require_once 'includes/conexao.php';
 require_once 'includes/seguranca.php';
@@ -10,20 +9,194 @@ require_once 'includes/seguranca.php';
 // ID da disciplina para filtro
 $filtro_disciplina_id = isset($_GET['disciplina_id']) ? $_GET['disciplina_id'] : null;
 
-// Consulta para buscar disciplinas para o filtro
-$sql_disciplinas = "SELECT id, nome FROM disciplina ORDER BY nome";
-$result_disciplinas = $conn->query($sql_disciplinas);
-$disciplinas = [];
-if ($result_disciplinas->num_rows > 0) {
-    while ($row = $result_disciplinas->fetch_assoc()) {
-        $disciplinas[] = $row;
+// --- Lógica de Exportação ---
+if (isset($_GET['export'])) {
+    $export_format = $_GET['export'];
+
+    // Re-executar a consulta para a exportação, garantindo que os dados sejam os mesmos da exibição
+    $sql_export = "SELECT
+                       u.patente,
+                       u.nome,
+                       u.titulacao,
+                       u.telefone,
+                       d.nome AS nome_disciplina,
+                       md.disponibilidade
+                   FROM
+                       minhas_disciplinas md
+                   JOIN
+                       usuario u ON md.usuario_id = u.id
+                   JOIN
+                       disciplina d ON md.disciplina_id = d.id";
+
+    $parametros_sql_export = [];
+
+    if ($filtro_disciplina_id && $filtro_disciplina_id !== '') {
+        $sql_export .= " WHERE md.disciplina_id = ?";
+        $parametros_sql_export[] = $filtro_disciplina_id;
+    }
+
+    $sql_export .= " ORDER BY u.nome, d.nome";
+
+    try {
+        $stmt_export = $pdo->prepare($sql_export);
+        $stmt_export->execute($parametros_sql_export);
+        $resultados_export = $stmt_export->fetchAll(PDO::FETCH_ASSOC);
+
+        $filename = 'professores_disciplinas';
+        if ($filtro_disciplina_id && $filtro_disciplina_id !== '') {
+             // Buscar nome da disciplina para o nome do arquivo, se filtrado
+             $stmt_disciplina_nome = $pdo->prepare("SELECT nome FROM disciplina WHERE id = ?");
+             $stmt_disciplina_nome->execute([$filtro_disciplina_id]);
+             $nome_disciplina_filtro = $stmt_disciplina_nome->fetchColumn();
+             if ($nome_disciplina_filtro) {
+                 $filename .= '_' . str_replace(' ', '_', $nome_disciplina_filtro);
+             }
+        }
+        $filename .= '_' . date('Ymd');
+
+
+        switch ($export_format) {
+            case 'html':
+                header('Content-Type: text/html');
+                header('Content-Disposition: attachment; filename="' . $filename . '.html"');
+                echo '<html><head><title>Relatório de Professores por Disciplina</title><style>table, th, td { border: 1px solid black; border-collapse: collapse; padding: 8px; }</style></head><body>';
+                echo '<h2>Relatório de Professores por Disciplina</h2>';
+                if ($filtro_disciplina_id && $filtro_disciplina_id !== '') {
+                     echo '<p>Filtrado por Disciplina: ' . htmlspecialchars($nome_disciplina_filtro) . '</p>';
+                }
+                echo '<table><thead><tr><th>Patente</th><th>Nome</th><th>Titulação</th><th>Telefone</th><th>Disciplina</th><th>Disponibilidade</th></tr></thead><tbody>';
+                foreach ($resultados_export as $row) {
+                    echo '<tr>';
+                    echo '<td>' . htmlspecialchars($row['patente']) . '</td>';
+                    echo '<td>' . htmlspecialchars($row['nome']) . '</td>';
+                    echo '<td>' . htmlspecialchars($row['titulacao']) . '</td>';
+                    echo '<td>' . htmlspecialchars($row['telefone']) . '</td>';
+                    echo '<td>' . htmlspecialchars($row['nome_disciplina']) . '</td>';
+                    echo '<td>' . htmlspecialchars($row['disponibilidade']) . '</td>';
+                    echo '</tr>';
+                }
+                echo '</tbody></table></body></html>';
+                break;
+
+            case 'csv':
+                header('Content-Type: text/csv');
+                header('Content-Disposition: attachment; filename="' . $filename . '.csv"');
+                $output = fopen('php://output', 'w');
+                fputcsv($output, ['Patente', 'Nome', 'Titulação', 'Telefone', 'Disciplina', 'Disponibilidade']);
+                foreach ($resultados_export as $row) {
+                    fputcsv($output, $row);
+                }
+                fclose($output);
+                break;
+
+            case 'pdf':
+                require('includes/fpdf/fpdf.php'); // Verifique o caminho correto
+
+                class PDF extends FPDF
+                {
+                    // Cabeçalho da página
+                    function Header()
+                    {
+                        // Logo (se tiver) - ajuste o caminho e as coordenadas
+                        // $this->Image('caminho/para/sua/logo.png', 10, 6, 30);
+                        $this->SetFont('Arial', 'B', 15);
+                        // Move right
+                        $this->Cell(80);
+                        // Título
+                        $this->Cell(30, 10, 'Relatório de Professores por Disciplina', 0, 0, 'C');
+                        // Line break
+                        $this->Ln(20);
+                    }
+
+                    // Rodapé da página
+                    function Footer()
+                    {
+                        // Position at 1.5 cm from bottom
+                        $this->SetY(-15);
+                        // Arial italic 8
+                        $this->SetFont('Arial', 'I', 8);
+                        // Page number
+                        $this->Cell(0, 10, 'Página ' . $this->PageNo() . '/{nb}', 0, 0, 'C');
+                    }
+
+                    // Tabela colorida
+                    function FancyTable($header, $data)
+                    {
+                        // Colors, line width and bold font
+                        $this->SetFillColor(230, 230, 230); // Cor de fundo para o cabeçalho
+                        $this->SetTextColor(0);
+                        $this->SetDrawColor(128, 128, 128);
+                        $this->SetLineWidth(.3);
+                        $this->SetFont('', 'B');
+                        // Header
+                        $w = array(20, 50, 30, 30, 40, 30); // Larguras das colunas - ajuste conforme necessário
+                        for ($i = 0; $i < count($header); $i++)
+                            $this->Cell($w[$i], 7, $header[$i], 1, 0, 'C', true);
+                        $this->Ln();
+                        // Color and font restoration
+                        $this->SetFillColor(224, 235, 255);
+                        $this->SetTextColor(0);
+                        $this->SetFont('');
+                        // Data
+                        $fill = false;
+                        foreach ($data as $row) {
+                            $this->Cell($w[0], 6, $row['patente'], 'LR', 0, 'L', $fill);
+                            $this->Cell($w[1], 6, $row['nome'], 'LR', 0, 'L', $fill);
+                            $this->Cell($w[2], 6, $row['titulacao'], 'LR', 0, 'L', $fill);
+                            $this->Cell($w[3], 6, $row['telefone'], 'LR', 0, 'L', $fill);
+                            $this->Cell($w[4], 6, $row['nome_disciplina'], 'LR', 0, 'L', $fill);
+                            $this->Cell($w[5], 6, $row['disponibilidade'], 'LR', 0, 'L', $fill);
+                            $this->Ln();
+                            $fill = !$fill;
+                        }
+                        // Closing line
+                        $this->Cell(array_sum($w), 0, '', 'T');
+                    }
+                }
+
+                // Instanciação e configurações básicas
+                $pdf = new PDF();
+                $pdf->AliasNbPages();
+                $pdf->AddPage();
+                $pdf->SetFont('Arial', '', 12);
+
+                // Cabeçalho da tabela no PDF
+                $header = array('Patente', 'Nome', 'Titulação', 'Telefone', 'Disciplina', 'Disponibilidade');
+
+                // Adiciona a tabela ao PDF
+                $pdf->FancyTable($header, $resultados_export);
+
+                // Output do PDF
+                $pdf->Output('D', $filename . '.pdf'); // 'D' força o download
+
+                break;
+
+            default:
+                // Formato não suportado
+                die("Formato de exportação não suportado.");
+        }
+        exit; // Importante para parar a execução após a exportação
+    } catch (PDOException $e) {
+        error_log("Erro na exportação: " . $e->getMessage());
+        die("Ocorreu um erro durante a exportação.");
     }
 }
+// --- Fim Lógica de Exportação ---
+
+
+// Consulta para buscar disciplinas para o filtro
+$sql_disciplinas = "SELECT id, nome FROM disciplina ORDER BY nome";
+try {
+    $stmt_disciplinas = $pdo->query($sql_disciplinas);
+    $disciplinas = $stmt_disciplinas->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    error_log("Erro ao buscar disciplinas para filtro: " . $e->getMessage());
+    $disciplinas = []; // Retorna um array vazio em caso de erro
+}
+
 
 // Consulta principal para buscar professores e disciplinas
-// Reexecutar a consulta para a exportação para garantir que os dados sejam os mesmos da exibição
-// Pode ser otimizado para evitar reexecução se a lógica de exportação for separada
-$sql = "SELECT 
+$sql = "SELECT
             u.patente,
             u.nome,
             u.titulacao,
@@ -37,128 +210,23 @@ $sql = "SELECT
         JOIN
             disciplina d ON md.disciplina_id = d.id";
 
+$parametros_sql = [];
+
 // Adicionar filtro se um disciplina_id for fornecido
 if ($filtro_disciplina_id && $filtro_disciplina_id !== '') {
-    $sql .= " WHERE md.disciplina_id = " . $conn->real_escape_string($filtro_disciplina_id);
+    $sql .= " WHERE md.disciplina_id = ?";
+    $parametros_sql[] = $filtro_disciplina_id;
 }
 
 $sql .= " ORDER BY u.nome, d.nome";
 
-$result = $conn->query($sql);
-
-
-// --- Lógica de Exportação ---
-if (isset($_GET['export'])) {
-    $export_format = $_GET['export'];
-
-    // Reexecutar a consulta para a exportação
-    $export_result = $conn->query($sql);
-    $data_to_export = [];
-    if ($export_result->num_rows > 0) {
-        while ($row = $export_result->fetch_assoc()) {
-            $data_to_export[] = $row;
-        }
-    }
-
-    switch ($export_format) {
-        case 'html':
-            header('Content-Type: text/html');
-            header('Content-Disposition: attachment; filename="professores_disciplinas.html"');
-            
-            echo "<html><head><title>Professores por Disciplina</title><style>table, th, td { border: 1px solid black; border-collapse: collapse; padding: 8px; }</style></head><body>";
-            echo "<h2>Professores por Disciplina</h2>";
-            echo "<table>";
-            echo "<thead><tr><th>Patente</th><th>Nome</th><th>Titulação</th><th>Telefone</th><th>Disciplina</th><th>Disponibilidade</th></tr></thead>";
-            echo "<tbody>";
-            foreach ($data_to_export as $row) {
-                echo "<tr>";
-                echo "<td>" . htmlspecialchars($row['patente']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['nome']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['titulacao']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['telefone']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['nome_disciplina']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['disponibilidade']) . "</td>";
-                echo "</tr>";
-            }
-            echo "</tbody>";
-            echo "</table>";
-            echo "</body></html>";
-            exit;
-
-        case 'csv':
-            header('Content-Type: text/csv');
-            header('Content-Disposition: attachment; filename="professores_disciplinas.csv"');
-
-            $output = fopen('php://output', 'w');
-
-            // Cabeçalho do CSV
-            fputcsv($output, ['Patente', 'Nome', 'Titulação', 'Telefone', 'Disciplina', 'Disponibilidade']);
-
-            // Dados
-            foreach ($data_to_export as $row) {
-                fputcsv($output, $row);
-            }
-
-            fclose($output);
-            exit;
-
-        case 'pdf':
-            require('includes/fpdf/fpdf.php'); // Incluir a biblioteca FPDF
-
-            class PDF extends FPDF
-            {
-                // Cabeçalho
-                function Header()
-                {
-                    $this->SetFont('Arial', 'B', 12);
-                    $this->Cell(0, 10, 'Relatório de Professores por Disciplina', 0, 1, 'C');
-                    $this->Ln(10);
-                }
-
-                // Rodapé
-                function Footer()
-                {
-                    $this->SetY(-15);
-                    $this->SetFont('Arial', 'I', 8);
-                    $this->Cell(0, 10, 'Página ' . $this->PageNo() . '/{nb}', 0, 0, 'C');
-                }
-            }
-
-            // Criação do objeto PDF
-            $pdf = new PDF();
-            $pdf->AliasNbPages();
-            $pdf->AddPage();
-            $pdf->SetFont('Arial', '', 10);
-
-            // Títulos das colunas
-            $header = ['Patente', 'Nome', 'Titulação', 'Telefone', 'Disciplina', 'Disponibilidade'];
-            // Larguras das colunas
-            $w = [20, 50, 30, 30, 40, 30]; // Ajuste conforme necessário
-
-            // Cabeçalho da tabela
-            for ($i = 0; $i < count($header); $i++) {
-                $pdf->Cell($w[$i], 7, $header[$i], 1, 0, 'C');
-            }
-            $pdf->Ln();
-
-            // Dados da tabela
-            foreach ($data_to_export as $row) {
-                $pdf->Cell($w[0], 6, $row['patente'], 1);
-                $pdf->Cell($w[1], 6, $row['nome'], 1);
-                $pdf->Cell($w[2], 6, $row['titulacao'], 1);
-                $pdf->Cell($w[3], 6, $row['telefone'], 1);
-                $pdf->Cell($w[4], 6, $row['nome_disciplina'], 1);
-                $pdf->Cell($w[5], 6, $row['disponibilidade'], 1);
-                $pdf->Ln();
-            }
-
-            $pdf->Output('D', 'professores_disciplinas.pdf'); // 'D' para download, 'I' para exibir no navegador
-            exit;
-
-        default:
-            // Formato de exportação inválido
-            break;
-    }
+try {
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($parametros_sql);
+    $resultados = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    error_log("Erro ao buscar professores e disciplinas: " . $e->getMessage());
+    $resultados = []; // Retorna um array vazio em caso de erro
 }
 
 ?>
@@ -168,44 +236,55 @@ if (isset($_GET['export'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Professores por Disciplina</title>
+    <title>Professores por Disciplina - AVAPM</title>
     <link rel="stylesheet" href="css/style.css">
-    <!-- Adicione aqui outros links para CSS, como Font Awesome -->
+    <!-- Inclua aqui os links para as bibliotecas de ícones (Font Awesome, etc.) se estiver usando -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body class="dashboard-page">
-    <?php // Incluir a sidebar
-          // include 'includes/templates/sidebar_dashboard.php'; // Substitua pelo seu arquivo de sidebar real
-    ?>
+
+    <?php include 'includes/templates/sidebar_dashboard.php'; ?>
 
     <div class="main-content-dashboard">
         <div class="dashboard-header">
             <h1>Professores por Disciplina</h1>
-            <?php // Incluir informações do usuário logado, se necessário
-                  // include 'includes/templates/header_dashboard.php'; // Substitua pelo seu arquivo de header real
-            ?>
+            <?php include 'includes/templates/header_dashboard.php'; ?>
         </div>
 
         <div class="dashboard-section">
             <div class="section-header">
-                <h2>Lista de Professores e Disciplinas</h2>
-                </div>
+                 <h2>Consulta e Exportação</h2>
+            </div>
 
-            <form method="GET" action="">
+            <!-- Formulário de Filtro -->
+            <form method="GET" action="disciplina_professores.php" class="form-dashboard">
                 <div class="form-group">
                     <label for="disciplina_id">Filtrar por Disciplina:</label>
-                    <select name="disciplina_id" id="disciplina_id" onchange="this.form.submit()">
+                    <select name="disciplina_id" id="disciplina_id" class="form-control">
                         <option value="">Todas as Disciplinas</option>
                         <?php foreach ($disciplinas as $disciplina): ?>
-                            <option value="<?php echo $disciplina['id']; ?>" <?php echo ($filtro_disciplina_id == $disciplina['id']) ? 'selected' : ''; ?>>
+                            <option value="<?php echo htmlspecialchars($disciplina['id']); ?>"
+                                <?php echo ($filtro_disciplina_id == $disciplina['id']) ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($disciplina['nome']); ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
                 </div>
+                <button type="submit" class="btn-primary-dashboard">Aplicar Filtro</button>
+                 <a href="disciplina_professores.php" class="btn-secondary-dashboard">Limpar Filtro</a>
             </form>
 
-            <div class="table-responsive">
+            <!-- Opções de Exportação -->
+            <div class="export-options" style="margin-top: 20px;">
+                <h3 style="margin-bottom: 10px;">Exportar Dados:</h3>
+                <a href="?<?php echo http_build_query(array_merge($_GET, ['export' => 'html'])); ?>" class="btn-primary-dashboard"><i class="fas fa-file-code"></i> Exportar HTML</a>
+                <a href="?<?php echo http_build_query(array_merge($_GET, ['export' => 'csv'])); ?>" class="btn-primary-dashboard"><i class="fas fa-file-csv"></i> Exportar CSV</a>
+                <a href="?<?php echo http_build_query(array_merge($_GET, ['export' => 'pdf'])); ?>" class="btn-primary-dashboard"><i class="fas fa-file-pdf"></i> Exportar PDF</a>
+            </div>
+
+
+            <!-- Tabela de Resultados -->
+            <div class="table-responsive dashboard-section">
                 <table class="data-table">
                     <thead>
                         <tr>
@@ -218,42 +297,31 @@ if (isset($_GET['export'])) {
                         </tr>
                     </thead>
                     <tbody>
-                        <?php
-                        if ($result->num_rows > 0) {
-                            while ($row = $result->fetch_assoc()) {
-                                echo "<tr>";
-                                echo "<td>" . htmlspecialchars($row['patente']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['nome']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['titulacao']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['telefone']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['nome_disciplina']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['disponibilidade']) . "</td>";
-                                echo "</tr>";
-                            }
-                        } else {
-                            echo "<tr><td colspan='6'>Nenhum professor encontrado para esta disciplina.</td></tr>";
-                        }
-                        ?>
+                        <?php if (!empty($resultados)): ?>
+                            <?php foreach ($resultados as $row): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($row['patente']); ?></td>
+                                    <td><?php echo htmlspecialchars($row['nome']); ?></td>
+                                    <td><?php echo htmlspecialchars($row['titulacao']); ?></td>
+                                    <td><?php echo htmlspecialchars($row['telefone']); ?></td>
+                                    <td><?php echo htmlspecialchars($row['nome_disciplina']); ?></td>
+                                    <td><?php echo htmlspecialchars($row['disponibilidade']); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <tr>
+                                <td colspan="6" style="text-align: center;">Nenhum professor encontrado para esta disciplina ou filtro.</td>
+                            </tr>
+                        <?php endif; ?>
                     </tbody>
                 </table>
             </div>
 
-            <?php /* TODO: Adicionar botões/links de exportação aqui */ ?>
-            <div class="export-buttons" style="margin-top: 20px;">
-                <?php $current_url = strtok($_SERVER["REQUEST_URI"], '?'); ?>
-                <a href="<?php echo $current_url; ?>?<?php echo http_build_query(array_merge($_GET, ['export' => 'html'])); ?>" class="btn-primary-dashboard">Exportar HTML</a>
-                <a href="<?php echo $current_url; ?>?<?php echo http_build_query(array_merge($_GET, ['export' => 'csv'])); ?>" class="btn-primary-dashboard">Exportar CSV</a>
-                <a href="<?php echo $current_url; ?>?<?php echo http_build_query(array_merge($_GET, ['export' => 'pdf'])); ?>" class="btn-primary-dashboard">Exportar PDF</a>
-            </div>
-
-
         </div>
     </div>
 
-    <?php $conn->close(); ?>
     <script src="js/script.js"></script>
-    <?php // Incluir outros scripts, se houver
-          // include 'includes/templates/footer_dashboard.php'; // Substitua pelo seu arquivo de footer real
-    ?>
+    <!-- Inclua outros scripts JavaScript aqui, se houver -->
+
 </body>
 </html>
