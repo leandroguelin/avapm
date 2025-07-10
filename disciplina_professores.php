@@ -365,27 +365,11 @@ $page_title = "Professores por Disciplina";
 
     <?php require_once __DIR__ . '/includes/templates/footer_dashboard.php'; ?>
 
-    <!-- Incluir jQuery -->
+    <!-- Inclusão dos Scripts -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <!-- Incluir Popper.js (necessário para Bootstrap 4) -->
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
-    <!-- Incluir Bootstrap JS -->
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
     <!-- Incluir JS do Select2 - Verifique o caminho correto -->
     <script src="caminho/para/select2/js/select2.min.js"></script>
     <!-- Inclua outros scripts JavaScript aqui, se houver -->
-
-    <script>
-        $(document).ready(function() {
-            $('#filtro_disciplina_select2').select2({
-                placeholder: "Selecione ou digite a disciplina", // Texto de placeholder
-                allowClear: true, // Permite limpar a seleção
-                minimumInputLength: 0, // Mostra todas as opções imediatamente
-                minimumResultsForSearch: 1 // Garante que a caixa de busca seja sempre visível
-            });
-        });
-    </script>
-
     <!-- Incluir seu script.js por último -->
     <script src="js/script.js"></script>
      <!-- Se houver um script de alternância da sidebar em script.js, ele será executado aqui.
@@ -394,4 +378,31 @@ $page_title = "Professores por Disciplina";
 
 
 </body>
+<script>
+    $(document).ready(function() {
+        $('#filtro_disciplina_select2').select2({
+            placeholder: "Selecione ou digite a disciplina",
+            allowClear: true,
+            minimumInputLength: 0, // Pode ajustar este valor para, por exemplo, 3 para começar a buscar após 3 caracteres
+            minimumResultsForSearch: 1,
+            ajax: {
+                url: 'avapm/get_disciplinas_ajax.php', // Caminho absoluto ou relativo para o endpoint AJAX
+                dataType: 'json',
+                delay: 250, // Pequeno atraso para não sobrecarregar o servidor enquanto o usuário digita
+                data: function (params) {
+                    return {
+                        q: params.term // Termo de busca digitado pelo usuário
+                    };
+                },
+                processResults: function (data) {
+                    // O formato esperado pelo Select2 é { results: [{ id: 1, text: 'Nome Disciplina' }, ...] }
+                    return {
+                        results: data // Assume que o seu endpoint retorna os dados no formato correto
+                    };
+                },
+                cache: true // Opcional: armazena resultados em cache
+            }
+        });
+    });
+</script>
 </html>
