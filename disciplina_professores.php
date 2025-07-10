@@ -7,7 +7,8 @@ require_once 'includes/seguranca.php';
 // require_once 'includes/seguranca.php'; // Assumindo que seguranca.php lida com isso
 
 // ID da disciplina para filtro
-$filtro_disciplina_nome = isset($_GET['disciplina_nome']) ? $_GET['disciplina_nome'] : '';
+$filtro_disciplina_id = isset($_GET['disciplina_id']) ? $_GET['disciplina_id'] : null;
+$filtro_disciplina_nome_digitado = isset($_GET['nome_disciplina']) ? $_GET['nome_disciplina'] : null; // Captura o valor do campo de texto antigo, caso ainda esteja na URL
 
 // --- Lógica de Exportação ---
 if (isset($_GET['export'])) {
@@ -29,16 +30,33 @@ if (isset($_GET['export'])) {
                        disciplina d ON md.disciplina_id = d.id";
 
     $parametros_sql_export = [];
+    $where_clauses_export = [];
 
-    if ($filtro_disciplina_nome !== '') {
-        $sql_export .= " WHERE d.nome ILIKE ?"; // Usando ILIKE para busca case-insensitive (PostgreSQL)
-        $parametros_sql_export[] = '%' . $filtro_disciplina_nome . '%';
+    // Adicionar filtro por ID da disciplina (do Select2)
+    if ($filtro_disciplina_id && $filtro_disciplina_id !== '') {
+        $where_clauses_export[] = "md.disciplina_id = ?";
+        $parametros_sql_export[] = $filtro_disciplina_id;
     }
+
+    // Adicionar filtro por nome da disciplina (do campo de texto anterior, se ainda relevante)
+    // Se você migrou totalmente para Select2, esta parte pode ser removida após confirmar que o filtro por ID funciona
+    /*
+    if ($filtro_disciplina_nome_digitado && $filtro_disciplina_nome_digitado !== '') {
+        $where_clauses_export[] = "d.nome ILIKE ?"; // Use ILIKE para case-insensitive no PostgreSQL
+        $parametros_sql_export[] = '%' . $filtro_disciplina_nome_digitado . '%';
+    }
+    */
+
+
+    if (!empty($where_clauses_export)) {
+        $sql_export .= " WHERE " . implode(" AND ", $where_clauses_export);
+    }
+
 
     $sql_export .= " ORDER BY u.nome, d.nome";
 
     try {
-        $stmt_export = $pdo->prepare($sql_export); // Use prepare para consultas com parâmetros
+        $stmt_export = $pdo->prepare($sql_export);
         $stmt_export->execute($parametros_sql_export);
         $resultados_export = $stmt_export->fetchAll(PDO::FETCH_ASSOC);
 
@@ -47,9 +65,9 @@ if (isset($_GET['export'])) {
              // Buscar nome da disciplina para o nome do arquivo, se filtrado
              $stmt_disciplina_nome = $pdo->prepare("SELECT nome FROM disciplina WHERE id = ?");
              $stmt_disciplina_nome->execute([$filtro_disciplina_id]);
-             $nome_disciplina_filtro = $stmt_disciplina_nome->fetchColumn();
-             if ($nome_disciplina_filtro) {
-                 $filename .= '_' . str_replace(' ', '_', $nome_disciplina_filtro);
+             $nome_disciplina_filtro_export = $stmt_disciplina_nome->fetchColumn();
+             if ($nome_disciplina_filtro_export) {
+                 $filename .= '_' . str_replace(' ', '_', $nome_disciplina_filtro_export);
              }
         }
         $filename .= '_' . date('Ymd');
@@ -60,9 +78,9 @@ if (isset($_GET['export'])) {
                 header('Content-Type: text/html');
                 header('Content-Disposition: attachment; filename="' . $filename . '.html"');
                 echo '<html><head><title>Relatório de Professores por Disciplina</title><style>table, th, td { border: 1px solid black; border-collapse: collapse; padding: 8px; }</style></head><body>';
-                echo '<h1>Relatório de Professores por Disciplina</h1>'; // Alterado para h1 para consistência
+                echo '<h2>Relatório de Professores por Disciplina</h2>';
                 if ($filtro_disciplina_id && $filtro_disciplina_id !== '') {
-                     echo '<p>Filtrado por Disciplina: ' . htmlspecialchars($nome_disciplina_filtro) . '</p>';
+                     echo '<p>Filtrado por Disciplina: ' . htmlspecialchars($nome_disciplina_filtro_export) . '</p>';
                 }
                 echo '<table><thead><tr><th>Patente</th><th>Nome</th><th>Titulação</th><th>Telefone</th><th>Disciplina</th><th>Disponibilidade</th></tr></thead><tbody>';
                 foreach ($resultados_export as $row) {
@@ -183,8 +201,20 @@ if (isset($_GET['export'])) {
 }
 // --- Fim Lógica de Exportação ---
 
+
+// Consulta para buscar disciplinas para o filtro Select2
+$sql_disciplinas = "SELECT id, nome FROM disciplina ORDER BY nome";
+try {
+    $stmt_disciplinas = $pdo->query($sql_disciplinas);
+    $disciplinas = $stmt_disciplinas->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    error_log("Erro ao buscar disciplinas para filtro: " . $e->getMessage());
+    $disciplinas = []; // Retorna um array vazio em caso de erro
+}
+
+
 // Consulta principal para buscar professores e disciplinas
-$sql = "SELECT DISTINCT -- Usar DISTINCT caso um professor ensine a mesma disciplina em várias turmas (baseado no schema)
+$sql = "SELECT
             u.patente,
             u.nome,
             u.titulacao,
@@ -199,12 +229,27 @@ $sql = "SELECT DISTINCT -- Usar DISTINCT caso um professor ensine a mesma discip
             disciplina d ON md.disciplina_id = d.id";
 
 $parametros_sql = [];
+$where_clauses = [];
 
-// Adicionar filtro se um disciplina_id for fornecido
-if ($filtro_disciplina_nome !== '') {
-    $sql .= " WHERE d.nome ILIKE ?"; // Usando ILIKE para busca case-insensitive (PostgreSQL)
-    $parametros_sql[] = '%' . $filtro_disciplina_nome . '%';
+// Adicionar filtro por ID da disciplina (do Select2)
+if ($filtro_disciplina_id && $filtro_disciplina_id !== '') {
+    $where_clauses[] = "md.disciplina_id = ?";
+    $parametros_sql[] = $filtro_disciplina_id;
 }
+
+// Adicionar filtro por nome da disciplina (do campo de texto anterior, caso ainda relevante para compatibilidade)
+/*
+if ($filtro_disciplina_nome_digitado && $filtro_disciplina_nome_digitado !== '') {
+    $where_clauses[] = "d.nome ILIKE ?"; // Use ILIKE para case-insensitive no PostgreSQL
+    $parametros_sql[] = '%' . $filtro_disciplina_nome_digitado . '%';
+}
+*/
+
+
+if (!empty($where_clauses)) {
+    $sql .= " WHERE " . implode(" AND ", $where_clauses);
+}
+
 
 $sql .= " ORDER BY u.nome, d.nome";
 
@@ -228,6 +273,10 @@ try {
     <link rel="stylesheet" href="css/style.css">
     <!-- Inclua aqui os links para as bibliotecas de ícones (Font Awesome, etc.) se estiver usando -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <!-- Incluir CSS do Select2 - Verifique o caminho correto no seu projeto -->
+    <link href="caminho/para/select2/css/select2.min.css" rel="stylesheet" />
+
 </head>
 <body class="dashboard-page">
 
@@ -244,12 +293,19 @@ try {
                  <h2>Consulta e Exportação</h2>
             </div>
 
-            <!-- Formulário de Filtro -->
+            <!-- Formulário de Filtro com Select2 -->
             <form method="GET" action="disciplina_professores.php" class="form-dashboard">
-                 <h2>Filtrar Professores</h2>
                 <div class="form-group">
-                    <label for="disciplina_nome">Nome da Disciplina:</label>
-                    <input type="text" name="disciplina_nome" id="disciplina_nome" class="form-control" value="<?php echo htmlspecialchars($filtro_disciplina_nome); ?>" placeholder="Digite o nome da disciplina">
+                    <label for="filtro_disciplina_select2">Filtrar por Disciplina:</label>
+                    <select name="disciplina_id" id="filtro_disciplina_select2" class="form-control">
+                        <option value="">Todas as Disciplinas</option>
+                        <?php foreach ($disciplinas as $disciplina): ?>
+                            <option value="<?php echo htmlspecialchars($disciplina['id']); ?>"
+                                <?php echo ($filtro_disciplina_id == $disciplina['id']) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($disciplina['nome']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
                 <button type="submit" class="btn-primary-dashboard">Aplicar Filtro</button>
                  <a href="disciplina_professores.php" class="btn-secondary-dashboard">Limpar Filtro</a>
@@ -301,8 +357,22 @@ try {
         </div>
     </div>
 
+    <!-- Incluir jQuery (geralmente necessário para Select2) - Verifique o caminho correto -->
+    <script src="caminho/para/jquery/jquery.min.js"></script>
+    <!-- Incluir JS do Select2 - Verifique o caminho correto -->
+    <script src="caminho/para/select2/js/select2.min.js"></script>
+
     <script src="js/script.js"></script>
     <!-- Inclua outros scripts JavaScript aqui, se houver -->
+
+    <script>
+        $(document).ready(function() {
+            $('#filtro_disciplina_select2').select2({
+                 placeholder: "Selecione ou digite a disciplina", // Texto de placeholder
+                 allowClear: true // Permite limpar a seleção
+            });
+        });
+    </script>
 
 </body>
 </html>
