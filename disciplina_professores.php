@@ -1,3 +1,4 @@
+php
 <?php
 // htdocs/avapm/disciplina_professores.php
 
