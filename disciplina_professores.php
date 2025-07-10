@@ -293,16 +293,6 @@ $page_title = "Professores por Disciplina";
     ?>
 
     <div class="main-content-dashboard">
-        <?php
-            // O conteúdo do header_dashboard.php já inclui o título principal
-            // Portanto, podemos remover o h1 duplicado aqui se o header já o tiver
-            // <div class="dashboard-header">
-            //     <h1>Professores por Disciplina</h1>
-            //     <?php include 'includes/templates/header_dashboard.php'; ?>
-            // </div>
-            // Se o header_dashboard.php NÃO incluir o título, mantenha a div acima e remova a inclusão do header aqui.
-            // Com base na estrutura comum, o header_dashboard.php deve ter a estrutura de cabeçalho.
-        ?>
 
         <div class="dashboard-section">
             <div class="section-header">
@@ -375,12 +365,14 @@ $page_title = "Professores por Disciplina";
 
     <?php require_once __DIR__ . '/includes/templates/footer_dashboard.php'; ?>
 
-    <!-- Incluir jQuery (geralmente necessário para Select2) - Verifique o caminho correto -->
-    <script src="caminho/para/jquery/jquery.min.js"></script>
+    <!-- Incluir jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Incluir Popper.js (necessário para Bootstrap 4) -->
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
+    <!-- Incluir Bootstrap JS -->
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
     <!-- Incluir JS do Select2 - Verifique o caminho correto -->
     <script src="caminho/para/select2/js/select2.min.js"></script>
-
-    <script src="js/script.js"></script>
     <!-- Inclua outros scripts JavaScript aqui, se houver -->
 
     <script>
@@ -389,12 +381,15 @@ $page_title = "Professores por Disciplina";
                  placeholder: "Selecione ou digite a disciplina", // Texto de placeholder
                  allowClear: true // Permite limpar a seleção
             });
-
-             // Se houver um script de alternância da sidebar em script.js, ele será executado aqui.
-             // Se o problema de travamento persistir, talvez seja necessário rever o script.js
-             // ou a interação entre ele e os scripts do dashboard/bootstrap.
         });
     </script>
+
+    <!-- Incluir seu script.js por último -->
+    <script src="js/script.js"></script>
+     <!-- Se houver um script de alternância da sidebar em script.js, ele será executado aqui.
+          Se o problema de travamento persistir, talvez seja necessário rever o script.js
+          ou a interação entre ele e os scripts do dashboard/bootstrap. -->
+
 
 </body>
 </html>
