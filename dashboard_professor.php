@@ -1,4 +1,3 @@
-php
 <?php
 // Define o título da página
 $page_title = "Dashboard Professor";
@@ -13,13 +12,16 @@ require_once __DIR__ . '/includes/templates/sidebar_dashboard.php';
 $current_page = "Dashboard"; // Para manter o "Dashboard" ativo na sidebar
 
 // Inclui o arquivo de configuração do banco de dados
-require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../src/models/Usuario.php';
-require_once __DIR__ . '/../src/models/MinhaDisciplina.php';
-require_once __DIR__ . '/../src/models/Nota.php'; // Inclui o modelo Nota
-require_once __DIR__ . '/../src/models/QuestionarioRespondido.php'; // Inclui o modelo QuestionarioRespondido
-require_once __DIR__ . '/../src/models/Resposta.php'; // Inclui o modelo Resposta
-require_once __DIR__ . '/../src/models/Disciplina.php'; // Inclui o modelo Disciplina
+require_once __DIR__ . '/includes/conexao.php'; // Caminho para conexao.php (dentro de avapm/includes)
+
+// Inclui os modelos - CORRIGIDO
+require_once __DIR__ . '/../Usuario.php'; // Usuario.php na raiz do projeto
+require_once __DIR__ . '/../MinhaDisciplina.php'; // MinhaDisciplina.php na raiz do projeto
+require_once __DIR__ . '/../Nota.php'; // Nota.php na raiz do projeto
+require_once __DIR__ . '/../QuestionarioRespondido.php'; // QuestionarioRespondido.php na raiz do projeto
+require_once __DIR__ . '/../Resposta.php'; // Resposta.php na raiz do projeto
+require_once __DIR__ . '/../Disciplina.php'; // Disciplina.php na raiz do projeto
+
 
 // Verifica se o usuário está logado e se é um professor
 if (!isset($_SESSION['usuario_id']) || $_SESSION['tipo_usuario'] !== 'professor') {
@@ -30,6 +32,7 @@ if (!isset($_SESSION['usuario_id']) || $_SESSION['tipo_usuario'] !== 'professor'
 $usuario_id = $_SESSION['usuario_id'];
 
 // Inicializa o objeto de conexão com o banco de dados
+// Assumindo que conexao.php define uma função getDatabaseConnection()
 $pdo = getDatabaseConnection();
 
 // Instancia os modelos
